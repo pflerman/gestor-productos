@@ -195,7 +195,7 @@ def display_products(products: list):
     table.add_column("Volumen (cm³)", style="blue", justify="right")
 
     for product in products:
-        product_id, nombre, largo, ancho, alto, precio = product
+        product_id, largo, ancho, alto, precio, nombre = product
         volumen = largo * ancho * alto
         table.add_row(
             str(product_id),
@@ -279,7 +279,7 @@ def update_product(manager: ProductManager):
 
         # Obtener datos actuales
         current_product = next(p for p in products if p[0] == product_id)
-        _, curr_nombre, curr_largo, curr_ancho, curr_alto, curr_precio = current_product
+        _, curr_largo, curr_ancho, curr_alto, curr_precio, curr_nombre = current_product
 
         console.print(f"\n[dim]Valores actuales: Nombre={curr_nombre}, Largo={curr_largo} cm, Ancho={curr_ancho} cm, Alto={curr_alto} cm, Precio=${curr_precio}[/dim]")
         console.print("[dim]Presiona Enter para mantener el valor actual[/dim]\n")
@@ -347,7 +347,7 @@ def generate_sales_description(manager: ProductManager):
             return
 
         # Desempaquetar datos del producto
-        _, nombre, largo, ancho, alto, precio = product
+        _, largo, ancho, alto, precio, nombre = product
 
         # Obtener nota aleatoria
         nota_random = manager.get_random_sales_note()
