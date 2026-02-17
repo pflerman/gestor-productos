@@ -54,9 +54,9 @@ chmod +x main.py
 ### 1. Agregar Producto
 Permite ingresar un nuevo producto con los siguientes campos:
 - **Nombre** (descripción del producto)
-- **Largo** (metros)
-- **Ancho** (metros)
-- **Alto** (metros)
+- **Largo** (centímetros)
+- **Ancho** (centímetros)
+- **Alto** (centímetros)
 - **Precio** ($)
 
 ### 2. Listar Productos
@@ -75,7 +75,7 @@ Elimina un producto de la base de datos (con confirmación).
 
 ### 5. Generar Descripción de Venta 🆕
 Genera automáticamente descripciones profesionales y amigables para tus publicaciones de Mercado Libre:
-- ✨ Convierte medidas de metros a centímetros automáticamente
+- ✨ Formatea las medidas de forma clara y profesional
 - 🎲 Agrega una nota aleatoria de venta (20 mensajes creativos disponibles)
 - 📋 Copia la descripción al portapapeles automáticamente
 - 💬 Formato optimizado para respuestas a clientes
@@ -108,9 +108,9 @@ El archivo `products.db` se crea automáticamente en la primera ejecución y con
 |--------|---------|--------------------------|
 | id     | INTEGER | ID autoincremental (PK)  |
 | nombre | TEXT    | Nombre del producto      |
-| largo  | REAL    | Largo en metros          |
-| ancho  | REAL    | Ancho en metros          |
-| alto   | REAL    | Alto en metros           |
+| largo  | REAL    | Largo en centímetros     |
+| ancho  | REAL    | Ancho en centímetros     |
+| alto   | REAL    | Alto en centímetros      |
 | precio | REAL    | Precio en pesos/dólares  |
 
 **Tabla: sales_notes**
@@ -149,13 +149,13 @@ gestor-productos/
 
 ### Tabla de Productos
 ```
-                         📦 Lista de Productos
-┏━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━┓
-┃ ID ┃ Nombre        ┃ Largo (m) ┃ Ancho (m) ┃ Alto (m) ┃ Precio ($)┃ Volumen (m³)┃
-┡━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━┩
-│ 1  │ Mesa Roble    │      2.00 │      1.50 │     0.80 │    150.00 │       2.400 │
-│ 2  │ Estantería    │      3.50 │      2.00 │     1.20 │    280.50 │       8.400 │
-└────┴───────────────┴───────────┴───────────┴──────────┴───────────┴─────────────┘
+                          📦 Lista de Productos
+┏━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ ID ┃ Nombre        ┃ Largo (cm) ┃ Ancho (cm) ┃ Alto (cm) ┃ Precio ($)┃ Volumen (cm³)┃
+┡━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ 1  │ Mesa Roble    │     200.00 │     150.00 │     80.00 │    150.00 │   2400000.00 │
+│ 2  │ Estantería    │     350.00 │     200.00 │    120.00 │    280.50 │   8400000.00 │
+└────┴───────────────┴────────────┴────────────┴───────────┴───────────┴──────────────┘
 ```
 
 ## 🤝 Contribuciones

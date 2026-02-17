@@ -188,11 +188,11 @@ def display_products(products: list):
     table = Table(title="📦 Lista de Productos", show_header=True, header_style="bold magenta")
     table.add_column("ID", style="cyan", justify="center")
     table.add_column("Nombre", style="white", justify="left")
-    table.add_column("Largo (m)", style="green", justify="right")
-    table.add_column("Ancho (m)", style="green", justify="right")
-    table.add_column("Alto (m)", style="green", justify="right")
+    table.add_column("Largo (cm)", style="green", justify="right")
+    table.add_column("Ancho (cm)", style="green", justify="right")
+    table.add_column("Alto (cm)", style="green", justify="right")
     table.add_column("Precio ($)", style="yellow", justify="right")
-    table.add_column("Volumen (m³)", style="blue", justify="right")
+    table.add_column("Volumen (cm³)", style="blue", justify="right")
 
     for product in products:
         product_id, nombre, largo, ancho, alto, precio = product
@@ -236,9 +236,9 @@ def add_product(manager: ProductManager):
             console.print("[red]✗[/red] El nombre no puede estar vacío")
             return
 
-        largo = FloatPrompt.ask("Largo (metros)", default=0.0)
-        ancho = FloatPrompt.ask("Ancho (metros)", default=0.0)
-        alto = FloatPrompt.ask("Alto (metros)", default=0.0)
+        largo = FloatPrompt.ask("Largo (centímetros)", default=0.0)
+        ancho = FloatPrompt.ask("Ancho (centímetros)", default=0.0)
+        alto = FloatPrompt.ask("Alto (centímetros)", default=0.0)
         precio = FloatPrompt.ask("Precio ($)", default=0.0)
 
         if largo <= 0 or ancho <= 0 or alto <= 0 or precio <= 0:
@@ -281,7 +281,7 @@ def update_product(manager: ProductManager):
         current_product = next(p for p in products if p[0] == product_id)
         _, curr_nombre, curr_largo, curr_ancho, curr_alto, curr_precio = current_product
 
-        console.print(f"\n[dim]Valores actuales: Nombre={curr_nombre}, Largo={curr_largo}, Ancho={curr_ancho}, Alto={curr_alto}, Precio={curr_precio}[/dim]")
+        console.print(f"\n[dim]Valores actuales: Nombre={curr_nombre}, Largo={curr_largo} cm, Ancho={curr_ancho} cm, Alto={curr_alto} cm, Precio=${curr_precio}[/dim]")
         console.print("[dim]Presiona Enter para mantener el valor actual[/dim]\n")
 
         nombre = Prompt.ask("Nuevo nombre", default=curr_nombre)
@@ -289,9 +289,9 @@ def update_product(manager: ProductManager):
             console.print("[red]✗[/red] El nombre no puede estar vacío")
             return
 
-        largo = FloatPrompt.ask("Nuevo largo (metros)", default=curr_largo)
-        ancho = FloatPrompt.ask("Nuevo ancho (metros)", default=curr_ancho)
-        alto = FloatPrompt.ask("Nuevo alto (metros)", default=curr_alto)
+        largo = FloatPrompt.ask("Nuevo largo (centímetros)", default=curr_largo)
+        ancho = FloatPrompt.ask("Nuevo ancho (centímetros)", default=curr_ancho)
+        alto = FloatPrompt.ask("Nuevo alto (centímetros)", default=curr_alto)
         precio = FloatPrompt.ask("Nuevo precio ($)", default=curr_precio)
 
         if largo <= 0 or ancho <= 0 or alto <= 0 or precio <= 0:
@@ -347,12 +347,7 @@ def generate_sales_description(manager: ProductManager):
             return
 
         # Desempaquetar datos del producto
-        _, nombre, largo_m, ancho_m, alto_m, precio = product
-
-        # Convertir medidas de metros a centímetros
-        largo_cm = largo_m * 100
-        ancho_cm = ancho_m * 100
-        alto_cm = alto_m * 100
+        _, nombre, largo, ancho, alto, precio = product
 
         # Obtener nota aleatoria
         nota_random = manager.get_random_sales_note()
@@ -361,9 +356,9 @@ def generate_sales_description(manager: ProductManager):
         descripcion = f"""¡Hola! Te presento este excelente {nombre} 😊
 
 📏 Medidas:
-   • Largo: {largo_cm:.1f} cm
-   • Ancho: {ancho_cm:.1f} cm
-   • Alto: {alto_cm:.1f} cm
+   • Largo: {largo:.1f} cm
+   • Ancho: {ancho:.1f} cm
+   • Alto: {alto:.1f} cm
 
 💰 Precio: ${precio:.2f}
 
