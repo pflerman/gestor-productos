@@ -9,11 +9,14 @@ Sistema simple de gestión de productos (CRUD) con Python, SQLite y Rich para un
 - 💾 **Persistencia**: Base de datos SQLite (products.db)
 - ✨ **Validación**: Validación de datos numéricos
 - 🎨 **Interfaz Amigable**: Menú interactivo con navegación numérica
+- 💬 **Generador de Descripciones**: Crea textos de venta profesionales para Mercado Libre
+- 📋 **Copia al Portapapeles**: Copia automática de descripciones listas para pegar
 
 ## 📋 Requisitos
 
 - Python 3.7 o superior
 - Rich (para interfaz de terminal)
+- Pyperclip (para copiar al portapapeles, opcional)
 
 ## 🔧 Instalación
 
@@ -25,7 +28,7 @@ cd gestor-productos
 
 2. Instala las dependencias:
 ```bash
-pip install rich
+pip install rich pyperclip
 ```
 
 ## 🎮 Uso
@@ -45,6 +48,7 @@ chmod +x main.py
 
 ### 1. Agregar Producto
 Permite ingresar un nuevo producto con los siguientes campos:
+- **Nombre** (descripción del producto)
 - **Largo** (metros)
 - **Ancho** (metros)
 - **Alto** (metros)
@@ -53,6 +57,7 @@ Permite ingresar un nuevo producto con los siguientes campos:
 ### 2. Listar Productos
 Muestra todos los productos en una tabla formateada que incluye:
 - ID
+- Nombre
 - Dimensiones (largo, ancho, alto)
 - Precio
 - Volumen calculado (largo × ancho × alto)
@@ -63,7 +68,30 @@ Actualiza los datos de un producto existente. Muestra los valores actuales y per
 ### 4. Eliminar Producto
 Elimina un producto de la base de datos (con confirmación).
 
-### 5. Salir
+### 5. Generar Descripción de Venta 🆕
+Genera automáticamente descripciones profesionales y amigables para tus publicaciones de Mercado Libre:
+- ✨ Convierte medidas de metros a centímetros automáticamente
+- 🎲 Agrega una nota aleatoria de venta (20 mensajes creativos disponibles)
+- 📋 Copia la descripción al portapapeles automáticamente
+- 💬 Formato optimizado para respuestas a clientes
+
+**Ejemplo de descripción generada:**
+```
+¡Hola! Te presento este excelente Mueble de Roble 😊
+
+📏 Medidas:
+   • Largo: 150.0 cm
+   • Ancho: 80.0 cm
+   • Alto: 45.0 cm
+
+💰 Precio: $25000.00
+
+🌟 Calidad premium garantizada, no te vas a arrepentir de esta compra
+
+¡Cualquier consulta no dudes en preguntar! Estoy para ayudarte 🙌
+```
+
+### 6. Salir
 Cierra la aplicación de forma segura.
 
 ## 💾 Base de Datos
@@ -74,10 +102,19 @@ El archivo `products.db` se crea automáticamente en la primera ejecución y con
 | Campo  | Tipo    | Descripción              |
 |--------|---------|--------------------------|
 | id     | INTEGER | ID autoincremental (PK)  |
+| nombre | TEXT    | Nombre del producto      |
 | largo  | REAL    | Largo en metros          |
 | ancho  | REAL    | Ancho en metros          |
 | alto   | REAL    | Alto en metros           |
 | precio | REAL    | Precio en pesos/dólares  |
+
+**Tabla: sales_notes**
+| Campo | Tipo    | Descripción                          |
+|-------|---------|--------------------------------------|
+| id    | INTEGER | ID autoincremental (PK)              |
+| nota  | TEXT    | Mensaje de venta aleatorio (UNIQUE)  |
+
+La tabla `sales_notes` contiene 20 mensajes creativos que se agregan aleatoriamente a las descripciones de venta.
 
 **Nota**: El archivo `products.db` está incluido en el repositorio para permitir la sincronización de datos entre diferentes PCs.
 
@@ -100,19 +137,20 @@ gestor-productos/
 │ [2] 📋 Listar Productos            │
 │ [3] ✏️  Modificar Producto         │
 │ [4] 🗑️  Eliminar Producto          │
-│ [5] 🚪 Salir                       │
+│ [5] 💬 Generar Descripción de Venta│
+│ [6] 🚪 Salir                       │
 ╰────────────────────────────────────╯
 ```
 
 ### Tabla de Productos
 ```
-           📦 Lista de Productos
-┏━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━┓
-┃ ID ┃ Largo (m) ┃ Ancho (m) ┃ Alto (m) ┃ Precio ($)┃ Volumen (m³)┃
-┡━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━┩
-│ 1  │      2.00 │      1.50 │     0.80 │    150.00 │       2.400 │
-│ 2  │      3.50 │      2.00 │     1.20 │    280.50 │       8.400 │
-└────┴───────────┴───────────┴──────────┴───────────┴─────────────┘
+                         📦 Lista de Productos
+┏━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━┓
+┃ ID ┃ Nombre        ┃ Largo (m) ┃ Ancho (m) ┃ Alto (m) ┃ Precio ($)┃ Volumen (m³)┃
+┡━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━┩
+│ 1  │ Mesa Roble    │      2.00 │      1.50 │     0.80 │    150.00 │       2.400 │
+│ 2  │ Estantería    │      3.50 │      2.00 │     1.20 │    280.50 │       8.400 │
+└────┴───────────────┴───────────┴───────────┴──────────┴───────────┴─────────────┘
 ```
 
 ## 🤝 Contribuciones
