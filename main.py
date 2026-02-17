@@ -31,6 +31,7 @@ class ProductManager:
             self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS products (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nombre TEXT NOT NULL,
                     largo REAL NOT NULL,
                     ancho REAL NOT NULL,
                     alto REAL NOT NULL,
@@ -38,19 +39,28 @@ class ProductManager:
                 )
             """)
             self.conn.commit()
+
+            # Migración: agregar columna nombre si no existe
+            self.cursor.execute("PRAGMA table_info(products)")
+            columns = [column[1] for column in self.cursor.fetchall()]
+            if 'nombre' not in columns:
+                self.cursor.execute("ALTER TABLE products ADD COLUMN nombre TEXT DEFAULT 'Sin nombre'")
+                self.conn.commit()
+                console.print(f"[yellow]⚠[/yellow] Columna 'nombre' agregada a la base de datos existente")
+
             console.print(f"[green]✓[/green] Base de datos '{self.db_name}' inicializada correctamente")
         except sqlite3.Error as e:
             console.print(f"[red]✗[/red] Error al inicializar la base de datos: {e}")
 
-    def create_product(self, largo: float, ancho: float, alto: float, precio: float) -> bool:
+    def create_product(self, nombre: str, largo: float, ancho: float, alto: float, precio: float) -> bool:
         """Crea un nuevo producto en la base de datos"""
         try:
             self.cursor.execute(
-                "INSERT INTO products (largo, ancho, alto, precio) VALUES (?, ?, ?, ?)",
-                (largo, ancho, alto, precio)
+                "INSERT INTO products (nombre, largo, ancho, alto, precio) VALUES (?, ?, ?, ?, ?)",
+                (nombre, largo, ancho, alto, precio)
             )
             self.conn.commit()
-            console.print(f"[green]✓[/green] Producto agregado exitosamente (ID: {self.cursor.lastrowid})")
+            console.print(f"[green]✓[/green] Producto '{nombre}' agregado exitosamente (ID: {self.cursor.lastrowid})")
             return True
         except sqlite3.Error as e:
             console.print(f"[red]✗[/red] Error al crear producto: {e}")
@@ -65,17 +75,17 @@ class ProductManager:
             console.print(f"[red]✗[/red] Error al leer productos: {e}")
             return []
 
-    def update_product(self, product_id: int, largo: float, ancho: float, alto: float, precio: float) -> bool:
+    def update_product(self, product_id: int, nombre: str, largo: float, ancho: float, alto: float, precio: float) -> bool:
         """Actualiza un producto existente"""
         try:
             self.cursor.execute(
-                "UPDATE products SET largo=?, ancho=?, alto=?, precio=? WHERE id=?",
-                (largo, ancho, alto, precio, product_id)
+                "UPDATE products SET nombre=?, largo=?, ancho=?, alto=?, precio=? WHERE id=?",
+                (nombre, largo, ancho, alto, precio, product_id)
             )
             self.conn.commit()
 
             if self.cursor.rowcount > 0:
-                console.print(f"[green]✓[/green] Producto ID {product_id} actualizado exitosamente")
+                console.print(f"[green]✓[/green] Producto '{nombre}' (ID {product_id}) actualizado exitosamente")
                 return True
             else:
                 console.print(f"[yellow]⚠[/yellow] No se encontró el producto con ID {product_id}")
@@ -114,6 +124,7 @@ def display_products(products: list):
 
     table = Table(title="📦 Lista de Productos", show_header=True, header_style="bold magenta")
     table.add_column("ID", style="cyan", justify="center")
+    table.add_column("Nombre", style="white", justify="left")
     table.add_column("Largo (m)", style="green", justify="right")
     table.add_column("Ancho (m)", style="green", justify="right")
     table.add_column("Alto (m)", style="green", justify="right")
@@ -121,10 +132,11 @@ def display_products(products: list):
     table.add_column("Volumen (m³)", style="blue", justify="right")
 
     for product in products:
-        product_id, largo, ancho, alto, precio = product
+        product_id, nombre, largo, ancho, alto, precio = product
         volumen = largo * ancho * alto
         table.add_row(
             str(product_id),
+            nombre,
             f"{largo:.2f}",
             f"{ancho:.2f}",
             f"{alto:.2f}",
@@ -155,6 +167,11 @@ def add_product(manager: ProductManager):
     console.print("\n[bold cyan]➕ Agregar Nuevo Producto[/bold cyan]")
 
     try:
+        nombre = Prompt.ask("Nombre del producto")
+        if not nombre.strip():
+            console.print("[red]✗[/red] El nombre no puede estar vacío")
+            return
+
         largo = FloatPrompt.ask("Largo (metros)", default=0.0)
         ancho = FloatPrompt.ask("Ancho (metros)", default=0.0)
         alto = FloatPrompt.ask("Alto (metros)", default=0.0)
@@ -164,7 +181,7 @@ def add_product(manager: ProductManager):
             console.print("[red]✗[/red] Todos los valores deben ser mayores a cero")
             return
 
-        manager.create_product(largo, ancho, alto, precio)
+        manager.create_product(nombre.strip(), largo, ancho, alto, precio)
     except (ValueError, KeyboardInterrupt):
         console.print("[yellow]Operación cancelada[/yellow]")
 
@@ -198,10 +215,15 @@ def update_product(manager: ProductManager):
 
         # Obtener datos actuales
         current_product = next(p for p in products if p[0] == product_id)
-        _, curr_largo, curr_ancho, curr_alto, curr_precio = current_product
+        _, curr_nombre, curr_largo, curr_ancho, curr_alto, curr_precio = current_product
 
-        console.print(f"\n[dim]Valores actuales: Largo={curr_largo}, Ancho={curr_ancho}, Alto={curr_alto}, Precio={curr_precio}[/dim]")
+        console.print(f"\n[dim]Valores actuales: Nombre={curr_nombre}, Largo={curr_largo}, Ancho={curr_ancho}, Alto={curr_alto}, Precio={curr_precio}[/dim]")
         console.print("[dim]Presiona Enter para mantener el valor actual[/dim]\n")
+
+        nombre = Prompt.ask("Nuevo nombre", default=curr_nombre)
+        if not nombre.strip():
+            console.print("[red]✗[/red] El nombre no puede estar vacío")
+            return
 
         largo = FloatPrompt.ask("Nuevo largo (metros)", default=curr_largo)
         ancho = FloatPrompt.ask("Nuevo ancho (metros)", default=curr_ancho)
@@ -212,7 +234,7 @@ def update_product(manager: ProductManager):
             console.print("[red]✗[/red] Todos los valores deben ser mayores a cero")
             return
 
-        manager.update_product(product_id, largo, ancho, alto, precio)
+        manager.update_product(product_id, nombre.strip(), largo, ancho, alto, precio)
     except (ValueError, KeyboardInterrupt):
         console.print("[yellow]Operación cancelada[/yellow]")
 
