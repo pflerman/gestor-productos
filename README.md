@@ -28,6 +28,11 @@ cd gestor-productos
 
 2. Instala las dependencias:
 ```bash
+pip install -r requirements.txt
+```
+
+O manualmente:
+```bash
 pip install rich pyperclip
 ```
 
