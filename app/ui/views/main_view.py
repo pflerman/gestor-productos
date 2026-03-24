@@ -284,6 +284,7 @@ class MainView(tk.Frame):
         self._tree.bind("<Return>", lambda e: self._on_edit_selected())
         self._tree.bind("<Delete>", lambda e: self._on_delete())
         self._tree.bind("<Button-1>", self._on_tree_click)
+        self._tree.bind("<Button-3>", self._on_right_click)
 
         # ── Botones de acción ──────────────────────────────────────────────
         action_bar = tk.Frame(self, bg=theme.BG_PRIMARY)
@@ -345,6 +346,54 @@ class MainView(tk.Frame):
         """Obtiene el texto del filtro ignorando el placeholder."""
         val = var.get()
         return "" if val == placeholder else val
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # MENÚ CONTEXTUAL (CLICK DERECHO)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _on_right_click(self, event) -> None:
+        """Muestra menú contextual con opciones de copiar."""
+        item = self._tree.identify_row(event.y)
+        if not item:
+            return
+        self._tree.selection_set(item)
+        # values: (check, id, sku, nombre, largo, ancho, alto, color, precio_fob, notas)
+        values = self._tree.item(item, "values")
+        nombre = values[3]
+        sku = values[2]
+        largo = values[4]
+        ancho = values[5]
+        alto = values[6]
+        notas = values[9] if len(values) > 9 else ""
+
+        menu = tk.Menu(self, tearoff=0)
+        menu.add_command(label=f"📋 Copiar SKU: {sku}",
+                         command=lambda: self._copiar(sku))
+        menu.add_command(label=f"📋 Copiar Título: {nombre}",
+                         command=lambda: self._copiar(nombre))
+        if notas:
+            nota_preview = notas if len(notas) <= 40 else notas[:40] + "..."
+            menu.add_command(label=f"📋 Copiar Nota: {nota_preview}",
+                             command=lambda: self._copiar(notas))
+        menu.add_command(
+            label=f"📋 Copiar Medidas",
+            command=lambda: self._copiar(
+                f"Las medidas de {nombre} son: {largo} cm de largo, "
+                f"{ancho} cm de ancho y {alto} cm de alto"))
+        menu.add_separator()
+        menu.add_command(label="📋 Copiar todo",
+                         command=lambda: self._copiar(
+                             f"{nombre}\nSKU: {sku}\n"
+                             f"Medidas: {largo} x {ancho} x {alto} cm"
+                             + (f"\nNotas: {notas}" if notas else "")))
+
+        menu.tk_popup(event.x_root, event.y_root)
+
+    def _copiar(self, texto: str) -> None:
+        """Copia texto al portapapeles."""
+        self.clipboard_clear()
+        self.clipboard_append(texto)
+        self._log.log(f"📋 Copiado: {texto[:60]}{'...' if len(texto) > 60 else ''}")
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHECKBOX / SELECCIÓN
