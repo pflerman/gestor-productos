@@ -289,30 +289,30 @@ class MainView(tk.Frame):
         action_bar = tk.Frame(self, bg=theme.BG_PRIMARY)
         action_bar.pack(fill="x", padx=20, pady=(0, 4))
 
-        tk.Button(action_bar, text="Editar", font=theme.FONT_BOLD,
-                  bg=theme.BTN_INFO, fg="white", relief="flat", bd=0,
+        tk.Button(action_bar, text="✅ Seleccionar todo", font=theme.FONT_BOLD,
+                  bg="#607D8B", fg="white", relief="flat", bd=0,
                   padx=14, pady=4, cursor="hand2",
-                  command=self._on_edit_selected).pack(side="left", padx=(0, 6))
-
-        tk.Button(action_bar, text="Eliminar", font=theme.FONT_BOLD,
-                  bg=theme.BTN_DANGER, fg="white", relief="flat", bd=0,
-                  padx=14, pady=4, cursor="hand2",
-                  command=self._on_delete).pack(side="left", padx=(0, 6))
-
-        tk.Button(action_bar, text="📄 Generar PDF con QR", font=theme.FONT_BOLD,
-                  bg="#9C27B0", fg="white", relief="flat", bd=0,
-                  padx=14, pady=4, cursor="hand2",
-                  command=self._on_generar_pdf).pack(side="right", padx=(6, 0))
+                  command=self._on_select_all).pack(side="left", padx=(0, 6))
 
         tk.Button(action_bar, text="❌ Deseleccionar", font=theme.FONT_BOLD,
                   bg="#607D8B", fg="white", relief="flat", bd=0,
                   padx=14, pady=4, cursor="hand2",
-                  command=self._on_deselect_all).pack(side="right", padx=(0, 6))
+                  command=self._on_deselect_all).pack(side="left", padx=(0, 6))
 
-        tk.Button(action_bar, text="✅ Seleccionar todo", font=theme.FONT_BOLD,
-                  bg="#607D8B", fg="white", relief="flat", bd=0,
+        tk.Button(action_bar, text="📄 Generar PDF con QR", font=theme.FONT_BOLD,
+                  bg="#9C27B0", fg="white", relief="flat", bd=0,
                   padx=14, pady=4, cursor="hand2",
-                  command=self._on_select_all).pack(side="right", padx=(0, 6))
+                  command=self._on_generar_pdf).pack(side="left", padx=(0, 6))
+
+        tk.Button(action_bar, text="Editar", font=theme.FONT_BOLD,
+                  bg=theme.BTN_INFO, fg="white", relief="flat", bd=0,
+                  padx=14, pady=4, cursor="hand2",
+                  command=self._on_edit_selected).pack(side="right", padx=(6, 0))
+
+        tk.Button(action_bar, text="Eliminar", font=theme.FONT_BOLD,
+                  bg=theme.BTN_DANGER, fg="white", relief="flat", bd=0,
+                  padx=14, pady=4, cursor="hand2",
+                  command=self._on_delete).pack(side="right", padx=(0, 6))
 
         # ── Log panel ─────────────────────────────────────────────────────
         self._log = LogPanel(self, height=5)
