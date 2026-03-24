@@ -1,8 +1,14 @@
 """Vista principal CRUD de Gestor Productos."""
 
+import io
 import logging
+import tempfile
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
+from pathlib import Path
+
+import qrcode
+from fpdf import FPDF
 
 from app.ui import theme
 from app.ui.components.log_panel import LogPanel
@@ -11,9 +17,9 @@ from app import db
 logger = logging.getLogger(__name__)
 
 COLORES = ("Blanco", "Negro", "Rosa", "Verde", "Violeta")
-COLUMNS = ("id", "nombre", "largo", "ancho", "alto", "color", "precio_fob")
-COL_HEADERS = ("ID", "Nombre", "Largo", "Ancho", "Alto", "Color", "Precio FOB")
-COL_WIDTHS = (50, 200, 80, 80, 80, 100, 100)
+COLUMNS = ("check", "id", "sku", "nombre", "largo", "ancho", "alto", "color", "precio_fob")
+COL_HEADERS = ("✓", "ID", "SKU", "Nombre", "Largo", "Ancho", "Alto", "Color", "Precio FOB")
+COL_WIDTHS = (35, 50, 110, 200, 80, 80, 80, 100, 100)
 
 
 def _fmt_num(val) -> str:
@@ -24,12 +30,24 @@ def _fmt_num(val) -> str:
     return f"{n:.2f}".rstrip("0")
 
 
+def _generar_qr_bytes(texto: str) -> bytes:
+    """Genera una imagen QR en PNG como bytes."""
+    qr = qrcode.QRCode(version=1, box_size=10, border=2)
+    qr.add_data(texto)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 class MainView(tk.Frame):
     """Vista CRUD de productos."""
 
     def __init__(self, master: tk.Widget, **kwargs):
         super().__init__(master, bg=theme.BG_PRIMARY, **kwargs)
         self._editing_id: int | None = None
+        self._checked: set[int] = set()  # IDs de productos seleccionados con check
         self._build()
         self._refresh_tree()
 
@@ -175,10 +193,14 @@ class MainView(tk.Frame):
 
         self._tree = ttk.Treeview(tree_frame, columns=COLUMNS, show="headings",
                                   selectmode="browse")
-        for col, header, width in zip(COLUMNS, COL_HEADERS, COL_WIDTHS):
-            self._tree.heading(col, text=header)
-            anchor = "e" if col in ("largo", "ancho", "alto", "precio_fob", "id") else "w"
-            self._tree.column(col, width=width, minwidth=40, anchor=anchor)
+        for col, hdr, width in zip(COLUMNS, COL_HEADERS, COL_WIDTHS):
+            self._tree.heading(col, text=hdr)
+            if col == "check":
+                self._tree.column(col, width=width, minwidth=35, anchor="center",
+                                  stretch=False)
+            else:
+                anchor = "e" if col in ("largo", "ancho", "alto", "precio_fob", "id") else "w"
+                self._tree.column(col, width=width, minwidth=40, anchor=anchor)
 
         self._tree.tag_configure("even", background=theme.TAG_EVEN)
         self._tree.tag_configure("odd", background=theme.TAG_ODD)
@@ -192,25 +214,171 @@ class MainView(tk.Frame):
         self._tree.bind("<Double-1>", lambda e: self._on_show_detail())
         self._tree.bind("<Return>", lambda e: self._on_edit_selected())
         self._tree.bind("<Delete>", lambda e: self._on_delete())
+        self._tree.bind("<Button-1>", self._on_tree_click)
 
         # ── Botones de acción ──────────────────────────────────────────────
         action_bar = tk.Frame(self, bg=theme.BG_PRIMARY)
         action_bar.pack(fill="x", padx=20, pady=(0, 4))
 
+        tk.Button(action_bar, text="✅ Seleccionar todo", font=theme.FONT_BOLD,
+                  bg="#607D8B", fg="white", relief="flat", bd=0,
+                  padx=14, pady=4, cursor="hand2",
+                  command=self._on_select_all).pack(side="left", padx=(0, 6))
+
+        tk.Button(action_bar, text="❌ Deseleccionar", font=theme.FONT_BOLD,
+                  bg="#607D8B", fg="white", relief="flat", bd=0,
+                  padx=14, pady=4, cursor="hand2",
+                  command=self._on_deselect_all).pack(side="left", padx=(0, 6))
+
+        tk.Button(action_bar, text="📄 Generar PDF con QR", font=theme.FONT_BOLD,
+                  bg="#9C27B0", fg="white", relief="flat", bd=0,
+                  padx=14, pady=4, cursor="hand2",
+                  command=self._on_generar_pdf).pack(side="left", padx=(0, 6))
+
         tk.Button(action_bar, text="Editar", font=theme.FONT_BOLD,
                   bg=theme.BTN_INFO, fg="white", relief="flat", bd=0,
                   padx=14, pady=4, cursor="hand2",
-                  command=self._on_edit_selected).pack(side="left", padx=(0, 6))
+                  command=self._on_edit_selected).pack(side="right", padx=(6, 0))
 
         tk.Button(action_bar, text="Eliminar", font=theme.FONT_BOLD,
                   bg=theme.BTN_DANGER, fg="white", relief="flat", bd=0,
                   padx=14, pady=4, cursor="hand2",
-                  command=self._on_delete).pack(side="left")
+                  command=self._on_delete).pack(side="right")
 
         # ── Log panel ─────────────────────────────────────────────────────
         self._log = LogPanel(self, height=5)
         self._log.pack(fill="x", padx=20, pady=(4, 12))
         self._log.log("App iniciada. Cargá productos con el formulario.")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # CHECKBOX / SELECCIÓN
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _on_tree_click(self, event) -> None:
+        """Toggle check cuando se clickea la columna ✓."""
+        region = self._tree.identify_region(event.x, event.y)
+        if region != "cell":
+            return
+        col = self._tree.identify_column(event.x)
+        if col != "#1":  # Columna "check" es la primera
+            return
+        item = self._tree.identify_row(event.y)
+        if not item:
+            return
+        values = list(self._tree.item(item, "values"))
+        prod_id = int(values[1])  # ID está en posición 1
+        if prod_id in self._checked:
+            self._checked.discard(prod_id)
+            values[0] = "☐"
+        else:
+            self._checked.add(prod_id)
+            values[0] = "☑"
+        self._tree.item(item, values=values)
+
+    def _on_select_all(self) -> None:
+        for item in self._tree.get_children():
+            values = list(self._tree.item(item, "values"))
+            prod_id = int(values[1])
+            self._checked.add(prod_id)
+            values[0] = "☑"
+            self._tree.item(item, values=values)
+        self._log.log(f"✅ {len(self._checked)} productos seleccionados")
+
+    def _on_deselect_all(self) -> None:
+        self._checked.clear()
+        for item in self._tree.get_children():
+            values = list(self._tree.item(item, "values"))
+            values[0] = "☐"
+            self._tree.item(item, values=values)
+        self._log.log("❌ Selección limpiada")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # PDF CON QR
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _on_generar_pdf(self) -> None:
+        if not self._checked:
+            messagebox.showinfo("Sin selección",
+                                "Seleccioná al menos un producto con el check ✓")
+            return
+
+        productos = db.listar()
+        seleccionados = [p for p in productos if p["id"] in self._checked]
+
+        if not seleccionados:
+            messagebox.showwarning("Error", "No se encontraron los productos seleccionados.")
+            return
+
+        filepath = filedialog.asksaveasfilename(
+            title="Guardar PDF con QR",
+            defaultextension=".pdf",
+            filetypes=[("PDF", "*.pdf")],
+            initialfile="productos_qr.pdf")
+        if not filepath:
+            return
+
+        try:
+            self._generar_pdf(seleccionados, filepath)
+            self._log.log(f"📄 PDF generado: {Path(filepath).name} ({len(seleccionados)} productos)")
+            messagebox.showinfo("PDF generado", f"Se guardó en:\n{filepath}")
+        except Exception as e:
+            logger.exception("Error generando PDF")
+            messagebox.showerror("Error", f"No se pudo generar el PDF:\n{e}")
+
+    def _generar_pdf(self, productos: list[dict], filepath: str) -> None:
+        """Genera PDF con título, SKU y QR de cada producto."""
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=20)
+
+        # Fuente por defecto (Helvetica soporta caracteres latinos)
+        for prod in productos:
+            pdf.add_page()
+
+            # Título del producto
+            pdf.set_font("Helvetica", "B", 22)
+            pdf.cell(0, 15, prod["nombre"], new_x="LMARGIN", new_y="NEXT", align="C")
+
+            pdf.ln(5)
+
+            # SKU
+            pdf.set_font("Helvetica", "", 14)
+            sku_text = f"SKU: {prod['sku']}" if prod.get("sku") else "SKU: -"
+            pdf.cell(0, 10, sku_text, new_x="LMARGIN", new_y="NEXT", align="C")
+
+            # Medidas
+            pdf.set_font("Helvetica", "", 11)
+            medidas = (f"Medidas: {_fmt_num(prod['largo'])} x "
+                       f"{_fmt_num(prod['ancho'])} x {_fmt_num(prod['alto'])} cm")
+            pdf.cell(0, 8, medidas, new_x="LMARGIN", new_y="NEXT", align="C")
+
+            # Color y precio
+            pdf.cell(0, 8, f"Color: {prod['color']}  |  Precio FOB: US$ {_fmt_num(prod['precio_fob'])}",
+                     new_x="LMARGIN", new_y="NEXT", align="C")
+
+            pdf.ln(10)
+
+            # QR con el título del producto
+            qr_bytes = _generar_qr_bytes(prod["nombre"])
+
+            # Guardar QR temporal y agregarlo al PDF
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                tmp.write(qr_bytes)
+                tmp_path = tmp.name
+
+            # Centrar el QR (150x150 px en el PDF)
+            qr_size = 80
+            x = (pdf.w - qr_size) / 2
+            pdf.image(tmp_path, x=x, w=qr_size, h=qr_size)
+
+            # Limpiar archivo temporal
+            Path(tmp_path).unlink(missing_ok=True)
+
+            pdf.ln(5)
+            pdf.set_font("Helvetica", "I", 9)
+            pdf.cell(0, 8, "Escaneá el QR para ver el nombre del producto",
+                     new_x="LMARGIN", new_y="NEXT", align="C")
+
+        pdf.output(filepath)
 
     # ══════════════════════════════════════════════════════════════════════════
     # CRUD
@@ -257,14 +425,14 @@ class MainView(tk.Frame):
             messagebox.showinfo("Selección", "Seleccioná un producto para editar.")
             return
         values = self._tree.item(sel[0], "values")
-        # values: (id, nombre, largo, ancho, alto, color, precio_fob)
-        self._editing_id = int(values[0])
-        self._nombre_var.set(values[1])
-        self._largo_var.set(values[2])
-        self._ancho_var.set(values[3])
-        self._alto_var.set(values[4])
-        self._color_var.set(values[5])
-        self._precio_var.set(values[6])
+        # values: (check, id, sku, nombre, largo, ancho, alto, color, precio_fob)
+        self._editing_id = int(values[1])
+        self._nombre_var.set(values[3])
+        self._largo_var.set(values[4])
+        self._ancho_var.set(values[5])
+        self._alto_var.set(values[6])
+        self._color_var.set(values[7])
+        self._precio_var.set(values[8])
         self._form_title.configure(text=f"Editando Producto #{self._editing_id}")
         self._btn_save.configure(text="Guardar", bg=theme.BTN_WARNING)
 
@@ -274,11 +442,12 @@ class MainView(tk.Frame):
             messagebox.showinfo("Selección", "Seleccioná un producto para eliminar.")
             return
         values = self._tree.item(sel[0], "values")
-        id_ = int(values[0])
-        nombre = values[1]
+        id_ = int(values[1])
+        nombre = values[3]
         if not messagebox.askyesno("Confirmar", f"¿Eliminar '{nombre}' (#{id_})?"):
             return
         db.eliminar(id_)
+        self._checked.discard(id_)
         self._log.log(f"Producto #{id_} eliminado: {nombre}")
         if self._editing_id == id_:
             self._clear_form()
@@ -289,8 +458,9 @@ class MainView(tk.Frame):
         if not sel:
             return
         values = self._tree.item(sel[0], "values")
-        # values: (id, nombre, largo, ancho, alto, color, precio_fob)
-        _DetailWindow(self.winfo_toplevel(), values, on_edit=self._on_edit_selected)
+        # Pasar sin el check: (id, sku, nombre, largo, ancho, alto, color, precio_fob)
+        detail_values = values[1:]
+        _DetailWindow(self.winfo_toplevel(), detail_values, on_edit=self._on_edit_selected)
 
     def _clear_form(self) -> None:
         self._editing_id = None
@@ -310,8 +480,10 @@ class MainView(tk.Frame):
         productos = db.listar(filtro)
         for i, p in enumerate(productos):
             tag = "even" if i % 2 == 0 else "odd"
+            check = "☑" if p["id"] in self._checked else "☐"
             self._tree.insert("", "end", values=(
-                p["id"], p["nombre"], _fmt_num(p["largo"]), _fmt_num(p["ancho"]),
+                check, p["id"], p.get("sku", "-"), p["nombre"],
+                _fmt_num(p["largo"]), _fmt_num(p["ancho"]),
                 _fmt_num(p["alto"]), p["color"], _fmt_num(p["precio_fob"])),
                 tags=(tag,))
         count = len(productos)
@@ -324,12 +496,13 @@ class _DetailWindow(tk.Toplevel):
     def __init__(self, master: tk.Widget, values: tuple, on_edit=None):
         super().__init__(master)
         self._on_edit = on_edit
-        self.title(f"Producto — {values[1]}")
+        # values: (id, sku, nombre, largo, ancho, alto, color, precio_fob)
+        self.title(f"Producto — {values[2]}")
         self.configure(bg=theme.BG_PRIMARY)
         self.resizable(False, False)
         self.transient(master)
 
-        id_, nombre, largo, ancho, alto, color, precio = values
+        id_, sku, nombre, largo, ancho, alto, color, precio = values
 
         # ── Contenedor principal ───────────────────────────────────────────
         container = tk.Frame(self, bg=theme.BG_PRIMARY)
@@ -340,7 +513,8 @@ class _DetailWindow(tk.Toplevel):
                  bg=theme.BG_PRIMARY, fg=theme.TEXT_PRIMARY,
                  wraplength=420, justify="left").pack(anchor="w", pady=(0, 4))
 
-        tk.Label(container, text=f"ID: {id_}", font=theme.FONT_SMALL,
+        info_line = f"ID: {id_}  •  SKU: {sku}"
+        tk.Label(container, text=info_line, font=theme.FONT_SMALL,
                  bg=theme.BG_PRIMARY, fg=theme.TEXT_MUTED
                  ).pack(anchor="w")
 

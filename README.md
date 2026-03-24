@@ -12,6 +12,10 @@ Sistema simple de gestión de productos (CRUD) con Python, SQLite y Rich para un
 - 💬 **Generador de Descripciones**: Crea textos de venta profesionales para Mercado Libre
 - 📋 **Copia al Portapapeles**: Copia automática de descripciones listas para pegar
 - 🤖 **Asistente IA**: Generación de texto con Claude y de imágenes con Gemini
+- 🏷️ **SKU Automático**: Cada producto recibe un código SKU único (GP-XXXXXXXX)
+- 📱 **Códigos QR**: Generación de QR con el título del producto
+- ✅ **Selección Múltiple**: Checkboxes para seleccionar varios productos
+- 📄 **Exportar PDF**: Genera un PDF con títulos, SKU y códigos QR de los productos seleccionados
 
 ## 📋 Requisitos
 
@@ -99,6 +103,18 @@ Genera automáticamente descripciones profesionales y amigables para tus publica
 
 ### 6. Salir
 Cierra la aplicación de forma segura.
+
+### 🏷️ SKU Automático
+Cada producto recibe automáticamente un código SKU único con formato `GP-XXXXXXXX` (8 caracteres alfanuméricos aleatorios). Los productos existentes que no tengan SKU lo reciben al iniciar la app.
+
+### ✅ Selección Múltiple y PDF con QR
+- Clickeá el check ☐ a la izquierda de cada producto para seleccionarlo ☑
+- Usá los botones "Seleccionar todo" / "Deseleccionar" para manejo rápido
+- Hacé click en "📄 Generar PDF con QR" para exportar un PDF con:
+  - Título del producto
+  - SKU
+  - Medidas, color y precio
+  - Código QR que al escanearlo muestra el nombre del producto
 
 ### 🤖 Asistente IA (pestaña)
 La app incluye una pestaña de IA con dos paneles:
