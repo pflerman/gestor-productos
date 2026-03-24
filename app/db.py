@@ -43,7 +43,8 @@ def init_db() -> None:
                 alto REAL NOT NULL DEFAULT 0,
                 color TEXT NOT NULL DEFAULT 'Blanco',
                 precio_fob REAL NOT NULL DEFAULT 0,
-                sku TEXT UNIQUE
+                sku TEXT UNIQUE,
+                notas TEXT NOT NULL DEFAULT ''
             )
         """)
         # Migrar: agregar columna sku si no existe (tabla ya creada sin ella)
@@ -51,6 +52,8 @@ def init_db() -> None:
         if "sku" not in cols:
             c.execute("ALTER TABLE productos ADD COLUMN sku TEXT")
             c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_sku ON productos(sku)")
+        if "notas" not in cols:
+            c.execute("ALTER TABLE productos ADD COLUMN notas TEXT NOT NULL DEFAULT ''")
         # Asignar SKU a productos existentes que no tengan
         sin_sku = c.execute("SELECT id FROM productos WHERE sku IS NULL").fetchall()
         for row in sin_sku:
@@ -62,9 +65,9 @@ def listar(filtro: str = "") -> list[dict]:
     sql = "SELECT * FROM productos"
     params: list = []
     if filtro:
-        sql += " WHERE nombre LIKE ? OR color LIKE ? OR sku LIKE ?"
+        sql += " WHERE nombre LIKE ? OR color LIKE ? OR sku LIKE ? OR notas LIKE ?"
         like = f"%{filtro}%"
-        params = [like, like, like]
+        params = [like, like, like, like]
     sql += " ORDER BY id DESC"
     with _conn() as c:
         rows = c.execute(sql, params).fetchall()
@@ -72,23 +75,23 @@ def listar(filtro: str = "") -> list[dict]:
 
 
 def agregar(nombre: str, largo: float, ancho: float, alto: float,
-            color: str, precio_fob: float) -> int:
+            color: str, precio_fob: float, notas: str = "") -> int:
     with _conn() as c:
         sku = _generar_sku(c)
         cur = c.execute(
-            "INSERT INTO productos (nombre, largo, ancho, alto, color, precio_fob, sku) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (nombre, largo, ancho, alto, color, precio_fob, sku))
+            "INSERT INTO productos (nombre, largo, ancho, alto, color, precio_fob, sku, notas) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (nombre, largo, ancho, alto, color, precio_fob, sku, notas))
         return cur.lastrowid
 
 
 def actualizar(id_: int, nombre: str, largo: float, ancho: float, alto: float,
-               color: str, precio_fob: float) -> None:
+               color: str, precio_fob: float, notas: str = "") -> None:
     with _conn() as c:
         c.execute(
-            "UPDATE productos SET nombre=?, largo=?, ancho=?, alto=?, color=?, precio_fob=? "
+            "UPDATE productos SET nombre=?, largo=?, ancho=?, alto=?, color=?, precio_fob=?, notas=? "
             "WHERE id=?",
-            (nombre, largo, ancho, alto, color, precio_fob, id_))
+            (nombre, largo, ancho, alto, color, precio_fob, notas, id_))
 
 
 def eliminar(id_: int) -> None:

@@ -17,9 +17,9 @@ from app import db
 logger = logging.getLogger(__name__)
 
 COLORES = ("Blanco", "Negro", "Rosa", "Verde", "Violeta")
-COLUMNS = ("check", "id", "sku", "nombre", "largo", "ancho", "alto", "color", "precio_fob")
-COL_HEADERS = ("✓", "ID", "SKU", "Nombre", "Largo", "Ancho", "Alto", "Color", "Precio FOB")
-COL_WIDTHS = (35, 50, 110, 200, 80, 80, 80, 100, 100)
+COLUMNS = ("check", "id", "sku", "nombre", "largo", "ancho", "alto", "color", "precio_fob", "notas")
+COL_HEADERS = ("✓", "ID", "SKU", "Nombre", "Largo", "Ancho", "Alto", "Color", "Precio FOB", "Notas")
+COL_WIDTHS = (35, 50, 110, 200, 80, 80, 80, 100, 100, 0)
 
 
 def _fmt_num(val) -> str:
@@ -28,6 +28,21 @@ def _fmt_num(val) -> str:
     if n == int(n):
         return str(int(n))
     return f"{n:.2f}".rstrip("0")
+
+
+def _texto_qr(prod: dict) -> str:
+    """Arma el texto completo para el QR de un producto."""
+    lines = [
+        f"Producto: {prod['nombre']}",
+        f"SKU: {prod.get('sku', '-')}",
+        f"Medidas: {_fmt_num(prod['largo'])} x {_fmt_num(prod['ancho'])} x {_fmt_num(prod['alto'])} cm",
+        f"Color: {prod['color']}",
+        f"Precio FOB: US$ {_fmt_num(prod['precio_fob'])}",
+    ]
+    notas = prod.get("notas", "")
+    if notas:
+        lines.append(f"Notas: {notas}")
+    return "\n".join(lines)
 
 
 def _generar_qr_bytes(texto: str) -> bytes:
@@ -171,6 +186,19 @@ class MainView(tk.Frame):
                  highlightbackground=theme.BORDER, highlightthickness=1, width=10
                  ).pack(side="left", padx=(0, 8))
 
+        # Row 4: Notas
+        row4 = tk.Frame(fields_frame, bg=theme.BG_CARD)
+        row4.pack(fill="x", pady=2)
+
+        tk.Label(row4, text="Notas:", font=theme.FONT_NORMAL,
+                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY, width=10, anchor="e"
+                 ).pack(side="left", padx=(0, 4), anchor="n")
+        self._notas_var = tk.StringVar()
+        tk.Entry(row4, textvariable=self._notas_var, font=theme.FONT_NORMAL,
+                 bg=theme.BG_INPUT, fg=theme.TEXT_PRIMARY, relief="flat", bd=1,
+                 highlightbackground=theme.BORDER, highlightthickness=1
+                 ).pack(side="left", fill="x", expand=True, padx=(0, 4))
+
         # Botones del formulario
         btn_frame = tk.Frame(form_card, bg=theme.BG_CARD)
         btn_frame.pack(fill="x", padx=12, pady=(4, 8))
@@ -198,6 +226,8 @@ class MainView(tk.Frame):
             if col == "check":
                 self._tree.column(col, width=width, minwidth=35, anchor="center",
                                   stretch=False)
+            elif col == "notas":
+                self._tree.column(col, width=0, minwidth=0, stretch=False)
             else:
                 anchor = "e" if col in ("largo", "ancho", "alto", "precio_fob", "id") else "w"
                 self._tree.column(col, width=width, minwidth=40, anchor=anchor)
@@ -220,30 +250,30 @@ class MainView(tk.Frame):
         action_bar = tk.Frame(self, bg=theme.BG_PRIMARY)
         action_bar.pack(fill="x", padx=20, pady=(0, 4))
 
-        tk.Button(action_bar, text="✅ Seleccionar todo", font=theme.FONT_BOLD,
-                  bg="#607D8B", fg="white", relief="flat", bd=0,
-                  padx=14, pady=4, cursor="hand2",
-                  command=self._on_select_all).pack(side="left", padx=(0, 6))
-
-        tk.Button(action_bar, text="❌ Deseleccionar", font=theme.FONT_BOLD,
-                  bg="#607D8B", fg="white", relief="flat", bd=0,
-                  padx=14, pady=4, cursor="hand2",
-                  command=self._on_deselect_all).pack(side="left", padx=(0, 6))
-
-        tk.Button(action_bar, text="📄 Generar PDF con QR", font=theme.FONT_BOLD,
-                  bg="#9C27B0", fg="white", relief="flat", bd=0,
-                  padx=14, pady=4, cursor="hand2",
-                  command=self._on_generar_pdf).pack(side="left", padx=(0, 6))
-
         tk.Button(action_bar, text="Editar", font=theme.FONT_BOLD,
                   bg=theme.BTN_INFO, fg="white", relief="flat", bd=0,
                   padx=14, pady=4, cursor="hand2",
-                  command=self._on_edit_selected).pack(side="right", padx=(6, 0))
+                  command=self._on_edit_selected).pack(side="left", padx=(0, 6))
 
         tk.Button(action_bar, text="Eliminar", font=theme.FONT_BOLD,
                   bg=theme.BTN_DANGER, fg="white", relief="flat", bd=0,
                   padx=14, pady=4, cursor="hand2",
-                  command=self._on_delete).pack(side="right")
+                  command=self._on_delete).pack(side="left", padx=(0, 6))
+
+        tk.Button(action_bar, text="📄 Generar PDF con QR", font=theme.FONT_BOLD,
+                  bg="#9C27B0", fg="white", relief="flat", bd=0,
+                  padx=14, pady=4, cursor="hand2",
+                  command=self._on_generar_pdf).pack(side="right", padx=(6, 0))
+
+        tk.Button(action_bar, text="❌ Deseleccionar", font=theme.FONT_BOLD,
+                  bg="#607D8B", fg="white", relief="flat", bd=0,
+                  padx=14, pady=4, cursor="hand2",
+                  command=self._on_deselect_all).pack(side="right", padx=(0, 6))
+
+        tk.Button(action_bar, text="✅ Seleccionar todo", font=theme.FONT_BOLD,
+                  bg="#607D8B", fg="white", relief="flat", bd=0,
+                  padx=14, pady=4, cursor="hand2",
+                  command=self._on_select_all).pack(side="right", padx=(0, 6))
 
         # ── Log panel ─────────────────────────────────────────────────────
         self._log = LogPanel(self, height=5)
@@ -355,10 +385,17 @@ class MainView(tk.Frame):
             pdf.cell(0, 8, f"Color: {prod['color']}  |  Precio FOB: US$ {_fmt_num(prod['precio_fob'])}",
                      new_x="LMARGIN", new_y="NEXT", align="C")
 
+            # Notas
+            notas = prod.get("notas", "")
+            if notas:
+                pdf.ln(4)
+                pdf.set_font("Helvetica", "I", 10)
+                pdf.cell(0, 8, f"Notas: {notas}", new_x="LMARGIN", new_y="NEXT", align="C")
+
             pdf.ln(10)
 
-            # QR con el título del producto
-            qr_bytes = _generar_qr_bytes(prod["nombre"])
+            # QR con info completa del producto
+            qr_bytes = _generar_qr_bytes(_texto_qr(prod))
 
             # Guardar QR temporal y agregarlo al PDF
             with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
@@ -398,8 +435,9 @@ class MainView(tk.Frame):
             messagebox.showwarning("Error", "Largo, ancho, alto y precio deben ser números.")
             return None
         color = self._color_var.get()
+        notas = self._notas_var.get().strip()
         return dict(nombre=nombre, largo=largo, ancho=ancho, alto=alto,
-                    color=color, precio_fob=precio_fob)
+                    color=color, precio_fob=precio_fob, notas=notas)
 
     def _on_save(self) -> None:
         vals = self._get_form_values()
@@ -425,7 +463,7 @@ class MainView(tk.Frame):
             messagebox.showinfo("Selección", "Seleccioná un producto para editar.")
             return
         values = self._tree.item(sel[0], "values")
-        # values: (check, id, sku, nombre, largo, ancho, alto, color, precio_fob)
+        # values: (check, id, sku, nombre, largo, ancho, alto, color, precio_fob, notas)
         self._editing_id = int(values[1])
         self._nombre_var.set(values[3])
         self._largo_var.set(values[4])
@@ -433,6 +471,7 @@ class MainView(tk.Frame):
         self._alto_var.set(values[6])
         self._color_var.set(values[7])
         self._precio_var.set(values[8])
+        self._notas_var.set(values[9] if len(values) > 9 else "")
         self._form_title.configure(text=f"Editando Producto #{self._editing_id}")
         self._btn_save.configure(text="Guardar", bg=theme.BTN_WARNING)
 
@@ -458,9 +497,13 @@ class MainView(tk.Frame):
         if not sel:
             return
         values = self._tree.item(sel[0], "values")
-        # Pasar sin el check: (id, sku, nombre, largo, ancho, alto, color, precio_fob)
-        detail_values = values[1:]
-        _DetailWindow(self.winfo_toplevel(), detail_values, on_edit=self._on_edit_selected)
+        # Armar dict para el detalle y el QR
+        prod = dict(
+            id=values[1], sku=values[2], nombre=values[3],
+            largo=values[4], ancho=values[5], alto=values[6],
+            color=values[7], precio_fob=values[8],
+            notas=values[9] if len(values) > 9 else "")
+        _DetailWindow(self.winfo_toplevel(), prod, on_edit=self._on_edit_selected)
 
     def _clear_form(self) -> None:
         self._editing_id = None
@@ -470,6 +513,7 @@ class MainView(tk.Frame):
         self._alto_var.set("0")
         self._color_var.set(COLORES[0])
         self._precio_var.set("0")
+        self._notas_var.set("")
         self._form_title.configure(text="Nuevo Producto")
         self._btn_save.configure(text="Agregar", bg=theme.BTN_SUCCESS)
 
@@ -484,7 +528,8 @@ class MainView(tk.Frame):
             self._tree.insert("", "end", values=(
                 check, p["id"], p.get("sku", "-"), p["nombre"],
                 _fmt_num(p["largo"]), _fmt_num(p["ancho"]),
-                _fmt_num(p["alto"]), p["color"], _fmt_num(p["precio_fob"])),
+                _fmt_num(p["alto"]), p["color"], _fmt_num(p["precio_fob"]),
+                p.get("notas", "")),
                 tags=(tag,))
         count = len(productos)
         self._count_label.configure(text=f"{count} producto{'s' if count != 1 else ''}")
@@ -493,16 +538,23 @@ class MainView(tk.Frame):
 class _DetailWindow(tk.Toplevel):
     """Ventana de detalle de producto."""
 
-    def __init__(self, master: tk.Widget, values: tuple, on_edit=None):
+    def __init__(self, master: tk.Widget, prod: dict, on_edit=None):
         super().__init__(master)
         self._on_edit = on_edit
-        # values: (id, sku, nombre, largo, ancho, alto, color, precio_fob)
-        self.title(f"Producto — {values[2]}")
+        self.title(f"Producto — {prod['nombre']}")
         self.configure(bg=theme.BG_PRIMARY)
         self.resizable(False, False)
         self.transient(master)
 
-        id_, sku, nombre, largo, ancho, alto, color, precio = values
+        id_ = prod["id"]
+        sku = prod.get("sku", "-")
+        nombre = prod["nombre"]
+        largo = prod["largo"]
+        ancho = prod["ancho"]
+        alto = prod["alto"]
+        color = prod["color"]
+        precio = prod["precio_fob"]
+        notas = prod.get("notas", "")
 
         # ── Contenedor principal ───────────────────────────────────────────
         container = tk.Frame(self, bg=theme.BG_PRIMARY)
@@ -531,6 +583,8 @@ class _DetailWindow(tk.Toplevel):
             ("Color", color),
             ("Precio FOB", f"US$ {precio}"),
         ]
+        if notas:
+            fields.append(("Notas", notas))
 
         for i, (label, value) in enumerate(fields):
             row = tk.Frame(card, bg=theme.BG_CARD)
@@ -544,6 +598,18 @@ class _DetailWindow(tk.Toplevel):
             fg = theme.ACCENT if label == "Precio FOB" else theme.TEXT_PRIMARY
             tk.Label(row, text=value, font=fnt,
                      bg=theme.BG_CARD, fg=fg).pack(side="left", padx=(8, 0))
+
+        # ── QR ───────────────────────────────────────────────────────────
+        qr_bytes = _generar_qr_bytes(_texto_qr(prod))
+        from PIL import Image, ImageTk
+        qr_img = Image.open(io.BytesIO(qr_bytes))
+        qr_img = qr_img.resize((150, 150), Image.LANCZOS)
+        self._qr_photo = ImageTk.PhotoImage(qr_img)
+        tk.Label(container, image=self._qr_photo, bg=theme.BG_PRIMARY
+                 ).pack(pady=(0, 4))
+        tk.Label(container, text="📱 Escaneá el QR para ver el producto",
+                 font=theme.FONT_SMALL, bg=theme.BG_PRIMARY, fg=theme.TEXT_MUTED
+                 ).pack()
 
         # ── Botones ──────────────────────────────────────────────────────
         btn_row = tk.Frame(container, bg=theme.BG_PRIMARY)
