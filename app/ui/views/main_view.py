@@ -1,0 +1,302 @@
+"""Vista principal CRUD de Gestor Productos."""
+
+import logging
+import tkinter as tk
+from tkinter import ttk, messagebox
+
+from app.ui import theme
+from app.ui.components.log_panel import LogPanel
+from app import db
+
+logger = logging.getLogger(__name__)
+
+COLORES = ("Blanco", "Negro", "Rosa", "Verde", "Violeta")
+COLUMNS = ("id", "nombre", "largo", "ancho", "alto", "color", "precio_fob")
+COL_HEADERS = ("ID", "Nombre", "Largo", "Ancho", "Alto", "Color", "Precio FOB")
+COL_WIDTHS = (50, 200, 80, 80, 80, 100, 100)
+
+
+class MainView(tk.Frame):
+    """Vista CRUD de productos."""
+
+    def __init__(self, master: tk.Widget, **kwargs):
+        super().__init__(master, bg=theme.BG_PRIMARY, **kwargs)
+        self._editing_id: int | None = None
+        self._build()
+        self._refresh_tree()
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # BUILD UI
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build(self) -> None:
+        # ── Header ─────────────────────────────────────────────────────────
+        header = tk.Frame(self, bg=theme.BG_PRIMARY)
+        header.pack(fill="x", padx=20, pady=(20, 8))
+
+        tk.Label(header, text="Gestor Productos", font=theme.FONT_TITLE,
+                 bg=theme.BG_PRIMARY, fg=theme.TEXT_PRIMARY).pack(side="left")
+
+        self._count_label = tk.Label(
+            header, text="0 productos", font=theme.FONT_SMALL,
+            bg=theme.BG_PRIMARY, fg=theme.COUNT_LABEL_COLOR)
+        self._count_label.pack(side="right")
+
+        # ── Filtro de búsqueda ─────────────────────────────────────────────
+        filter_card = tk.Frame(self, bg=theme.BG_CARD, bd=1, relief="solid",
+                               highlightbackground=theme.BORDER, highlightthickness=1)
+        filter_card.pack(fill="x", padx=20, pady=(0, 8))
+
+        tk.Label(filter_card, text="Buscar:", font=theme.FONT_BOLD,
+                 bg=theme.BG_CARD, fg=theme.TEXT_SECONDARY
+                 ).pack(side="left", padx=(10, 4), pady=8)
+
+        self._filter_var = tk.StringVar()
+        self._filter_var.trace_add("write", lambda *_: self._refresh_tree())
+        filter_entry = tk.Entry(
+            filter_card, textvariable=self._filter_var,
+            font=theme.FONT_NORMAL, bg=theme.BG_INPUT,
+            fg=theme.TEXT_PRIMARY, relief="flat", bd=1,
+            highlightbackground=theme.BORDER, highlightthickness=1)
+        filter_entry.pack(side="left", fill="x", expand=True, padx=(0, 6), pady=8)
+
+        tk.Button(filter_card, text="Limpiar", font=theme.FONT_SMALL,
+                  bg=theme.BG_SECONDARY, fg=theme.TEXT_SECONDARY, relief="flat",
+                  bd=0, padx=8, pady=2, cursor="hand2",
+                  command=lambda: self._filter_var.set("")
+                  ).pack(side="left", padx=(0, 8), pady=8)
+
+        # ── Formulario ────────────────────────────────────────────────────
+        form_card = tk.Frame(self, bg=theme.BG_CARD, bd=1, relief="solid",
+                             highlightbackground=theme.BORDER, highlightthickness=1)
+        form_card.pack(fill="x", padx=20, pady=(0, 8))
+
+        self._form_title = tk.Label(form_card, text="Nuevo Producto",
+                                    font=theme.FONT_BOLD, bg=theme.BG_CARD,
+                                    fg=theme.ACCENT)
+        self._form_title.pack(anchor="w", padx=12, pady=(8, 4))
+
+        fields_frame = tk.Frame(form_card, bg=theme.BG_CARD)
+        fields_frame.pack(fill="x", padx=12, pady=(0, 4))
+
+        # Row 1: Nombre
+        row1 = tk.Frame(fields_frame, bg=theme.BG_CARD)
+        row1.pack(fill="x", pady=2)
+
+        tk.Label(row1, text="Nombre:", font=theme.FONT_NORMAL,
+                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY, width=10, anchor="e"
+                 ).pack(side="left", padx=(0, 4))
+        self._nombre_var = tk.StringVar()
+        tk.Entry(row1, textvariable=self._nombre_var, font=theme.FONT_NORMAL,
+                 bg=theme.BG_INPUT, fg=theme.TEXT_PRIMARY, relief="flat", bd=1,
+                 highlightbackground=theme.BORDER, highlightthickness=1
+                 ).pack(side="left", fill="x", expand=True, padx=(0, 4))
+
+        # Row 2: Medidas
+        row2 = tk.Frame(fields_frame, bg=theme.BG_CARD)
+        row2.pack(fill="x", pady=2)
+
+        tk.Label(row2, text="Largo:", font=theme.FONT_NORMAL,
+                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY, width=10, anchor="e"
+                 ).pack(side="left", padx=(0, 4))
+        self._largo_var = tk.StringVar(value="0")
+        tk.Entry(row2, textvariable=self._largo_var, font=theme.FONT_NORMAL,
+                 bg=theme.BG_INPUT, fg=theme.TEXT_PRIMARY, relief="flat", bd=1,
+                 highlightbackground=theme.BORDER, highlightthickness=1, width=8
+                 ).pack(side="left", padx=(0, 8))
+
+        tk.Label(row2, text="Ancho:", font=theme.FONT_NORMAL,
+                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY
+                 ).pack(side="left", padx=(0, 4))
+        self._ancho_var = tk.StringVar(value="0")
+        tk.Entry(row2, textvariable=self._ancho_var, font=theme.FONT_NORMAL,
+                 bg=theme.BG_INPUT, fg=theme.TEXT_PRIMARY, relief="flat", bd=1,
+                 highlightbackground=theme.BORDER, highlightthickness=1, width=8
+                 ).pack(side="left", padx=(0, 8))
+
+        tk.Label(row2, text="Alto:", font=theme.FONT_NORMAL,
+                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY
+                 ).pack(side="left", padx=(0, 4))
+        self._alto_var = tk.StringVar(value="0")
+        tk.Entry(row2, textvariable=self._alto_var, font=theme.FONT_NORMAL,
+                 bg=theme.BG_INPUT, fg=theme.TEXT_PRIMARY, relief="flat", bd=1,
+                 highlightbackground=theme.BORDER, highlightthickness=1, width=8
+                 ).pack(side="left", padx=(0, 8))
+
+        # Row 3: Color + Precio FOB
+        row3 = tk.Frame(fields_frame, bg=theme.BG_CARD)
+        row3.pack(fill="x", pady=2)
+
+        tk.Label(row3, text="Color:", font=theme.FONT_NORMAL,
+                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY, width=10, anchor="e"
+                 ).pack(side="left", padx=(0, 4))
+        self._color_var = tk.StringVar(value=COLORES[0])
+        color_combo = ttk.Combobox(row3, textvariable=self._color_var,
+                                   values=COLORES, state="readonly",
+                                   font=theme.FONT_NORMAL, width=12)
+        color_combo.pack(side="left", padx=(0, 8))
+
+        tk.Label(row3, text="Precio FOB:", font=theme.FONT_NORMAL,
+                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY
+                 ).pack(side="left", padx=(0, 4))
+        self._precio_var = tk.StringVar(value="0")
+        tk.Entry(row3, textvariable=self._precio_var, font=theme.FONT_NORMAL,
+                 bg=theme.BG_INPUT, fg=theme.TEXT_PRIMARY, relief="flat", bd=1,
+                 highlightbackground=theme.BORDER, highlightthickness=1, width=10
+                 ).pack(side="left", padx=(0, 8))
+
+        # Botones del formulario
+        btn_frame = tk.Frame(form_card, bg=theme.BG_CARD)
+        btn_frame.pack(fill="x", padx=12, pady=(4, 8))
+
+        self._btn_save = tk.Button(
+            btn_frame, text="Agregar", font=theme.FONT_BOLD,
+            bg=theme.BTN_SUCCESS, fg="white", relief="flat", bd=0,
+            padx=14, pady=4, cursor="hand2", command=self._on_save)
+        self._btn_save.pack(side="left", padx=(0, 6))
+
+        self._btn_cancel = tk.Button(
+            btn_frame, text="Cancelar", font=theme.FONT_BOLD,
+            bg=theme.BG_SECONDARY, fg=theme.TEXT_SECONDARY, relief="flat", bd=0,
+            padx=14, pady=4, cursor="hand2", command=self._clear_form)
+        self._btn_cancel.pack(side="left")
+
+        # ── Treeview ───────────────────────────────────────────────────────
+        tree_frame = tk.Frame(self, bg=theme.BG_PRIMARY)
+        tree_frame.pack(fill="both", expand=True, padx=20, pady=(0, 4))
+
+        self._tree = ttk.Treeview(tree_frame, columns=COLUMNS, show="headings",
+                                  selectmode="browse")
+        for col, header, width in zip(COLUMNS, COL_HEADERS, COL_WIDTHS):
+            self._tree.heading(col, text=header)
+            anchor = "e" if col in ("largo", "ancho", "alto", "precio_fob", "id") else "w"
+            self._tree.column(col, width=width, minwidth=40, anchor=anchor)
+
+        self._tree.tag_configure("even", background=theme.TAG_EVEN)
+        self._tree.tag_configure("odd", background=theme.TAG_ODD)
+
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self._tree.yview)
+        self._tree.configure(yscrollcommand=vsb.set)
+
+        self._tree.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y")
+
+        self._tree.bind("<Double-1>", lambda e: self._on_edit_selected())
+        self._tree.bind("<Return>", lambda e: self._on_edit_selected())
+        self._tree.bind("<Delete>", lambda e: self._on_delete())
+
+        # ── Botones de acción ──────────────────────────────────────────────
+        action_bar = tk.Frame(self, bg=theme.BG_PRIMARY)
+        action_bar.pack(fill="x", padx=20, pady=(0, 4))
+
+        tk.Button(action_bar, text="Editar", font=theme.FONT_BOLD,
+                  bg=theme.BTN_INFO, fg="white", relief="flat", bd=0,
+                  padx=14, pady=4, cursor="hand2",
+                  command=self._on_edit_selected).pack(side="left", padx=(0, 6))
+
+        tk.Button(action_bar, text="Eliminar", font=theme.FONT_BOLD,
+                  bg=theme.BTN_DANGER, fg="white", relief="flat", bd=0,
+                  padx=14, pady=4, cursor="hand2",
+                  command=self._on_delete).pack(side="left")
+
+        # ── Log panel ─────────────────────────────────────────────────────
+        self._log = LogPanel(self, height=5)
+        self._log.pack(fill="x", padx=20, pady=(4, 12))
+        self._log.log("App iniciada. Cargá productos con el formulario.")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # CRUD
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _get_form_values(self) -> dict | None:
+        nombre = self._nombre_var.get().strip()
+        if not nombre:
+            messagebox.showwarning("Campo requerido", "El nombre es obligatorio.")
+            return None
+        try:
+            largo = float(self._largo_var.get() or 0)
+            ancho = float(self._ancho_var.get() or 0)
+            alto = float(self._alto_var.get() or 0)
+            precio_fob = float(self._precio_var.get() or 0)
+        except ValueError:
+            messagebox.showwarning("Error", "Largo, ancho, alto y precio deben ser números.")
+            return None
+        color = self._color_var.get()
+        return dict(nombre=nombre, largo=largo, ancho=ancho, alto=alto,
+                    color=color, precio_fob=precio_fob)
+
+    def _on_save(self) -> None:
+        vals = self._get_form_values()
+        if not vals:
+            return
+
+        if self._editing_id is not None:
+            db.actualizar(self._editing_id, **vals)
+            self._log.log(f"Producto #{self._editing_id} actualizado: {vals['nombre']}")
+            self._editing_id = None
+            self._form_title.configure(text="Nuevo Producto")
+            self._btn_save.configure(text="Agregar", bg=theme.BTN_SUCCESS)
+        else:
+            new_id = db.agregar(**vals)
+            self._log.log(f"Producto #{new_id} agregado: {vals['nombre']}")
+
+        self._clear_form()
+        self._refresh_tree()
+
+    def _on_edit_selected(self) -> None:
+        sel = self._tree.selection()
+        if not sel:
+            messagebox.showinfo("Selección", "Seleccioná un producto para editar.")
+            return
+        values = self._tree.item(sel[0], "values")
+        # values: (id, nombre, largo, ancho, alto, color, precio_fob)
+        self._editing_id = int(values[0])
+        self._nombre_var.set(values[1])
+        self._largo_var.set(values[2])
+        self._ancho_var.set(values[3])
+        self._alto_var.set(values[4])
+        self._color_var.set(values[5])
+        self._precio_var.set(values[6])
+        self._form_title.configure(text=f"Editando Producto #{self._editing_id}")
+        self._btn_save.configure(text="Guardar", bg=theme.BTN_WARNING)
+
+    def _on_delete(self) -> None:
+        sel = self._tree.selection()
+        if not sel:
+            messagebox.showinfo("Selección", "Seleccioná un producto para eliminar.")
+            return
+        values = self._tree.item(sel[0], "values")
+        id_ = int(values[0])
+        nombre = values[1]
+        if not messagebox.askyesno("Confirmar", f"¿Eliminar '{nombre}' (#{id_})?"):
+            return
+        db.eliminar(id_)
+        self._log.log(f"Producto #{id_} eliminado: {nombre}")
+        if self._editing_id == id_:
+            self._clear_form()
+        self._refresh_tree()
+
+    def _clear_form(self) -> None:
+        self._editing_id = None
+        self._nombre_var.set("")
+        self._largo_var.set("0")
+        self._ancho_var.set("0")
+        self._alto_var.set("0")
+        self._color_var.set(COLORES[0])
+        self._precio_var.set("0")
+        self._form_title.configure(text="Nuevo Producto")
+        self._btn_save.configure(text="Agregar", bg=theme.BTN_SUCCESS)
+
+    def _refresh_tree(self) -> None:
+        for item in self._tree.get_children():
+            self._tree.delete(item)
+        filtro = self._filter_var.get().strip()
+        productos = db.listar(filtro)
+        for i, p in enumerate(productos):
+            tag = "even" if i % 2 == 0 else "odd"
+            self._tree.insert("", "end", values=(
+                p["id"], p["nombre"], p["largo"], p["ancho"],
+                p["alto"], p["color"], p["precio_fob"]),
+                tags=(tag,))
+        count = len(productos)
+        self._count_label.configure(text=f"{count} producto{'s' if count != 1 else ''}")
