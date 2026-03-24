@@ -375,8 +375,14 @@ class MainView(tk.Frame):
             nota_preview = notas if len(notas) <= 40 else notas[:40] + "..."
             menu.add_command(label=f"📋 Copiar Nota: {nota_preview}",
                              command=lambda: self._copiar(notas))
+        menu.add_command(label=f"📋 Copiar Largo: {largo}",
+                         command=lambda: self._copiar(largo))
+        menu.add_command(label=f"📋 Copiar Ancho: {ancho}",
+                         command=lambda: self._copiar(ancho))
+        menu.add_command(label=f"📋 Copiar Alto: {alto}",
+                         command=lambda: self._copiar(alto))
         menu.add_command(
-            label=f"📋 Copiar Medidas",
+            label=f"📋 Copiar Medidas completas",
             command=lambda: self._copiar(
                 f"Las medidas de {nombre} son: {largo} cm de largo, "
                 f"{ancho} cm de ancho y {alto} cm de alto"))
