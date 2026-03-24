@@ -140,3 +140,15 @@ def setup_theme() -> None:
     # Separator
     style.configure("TSeparator",
                      background=BORDER)
+
+    # Notebook (pestañas)
+    style.configure("TNotebook", background=BG_PRIMARY, borderwidth=0)
+    style.configure("TNotebook.Tab",
+                     font=FONT_BOLD,
+                     padding=(16, 8),
+                     background=BG_SECONDARY,
+                     foreground=TEXT_SECONDARY)
+    style.map("TNotebook.Tab",
+              background=[("selected", BG_PRIMARY)],
+              foreground=[("selected", TEXT_PRIMARY)],
+              expand=[("selected", [0, 2, 0, 0])])

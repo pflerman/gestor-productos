@@ -11,6 +11,7 @@ Sistema simple de gestión de productos (CRUD) con Python, SQLite y Rich para un
 - 🎨 **Interfaz Amigable**: Menú interactivo con navegación numérica
 - 💬 **Generador de Descripciones**: Crea textos de venta profesionales para Mercado Libre
 - 📋 **Copia al Portapapeles**: Copia automática de descripciones listas para pegar
+- 🤖 **Asistente IA**: Generación de texto con Claude y de imágenes con Gemini
 
 ## 📋 Requisitos
 
@@ -98,6 +99,18 @@ Genera automáticamente descripciones profesionales y amigables para tus publica
 
 ### 6. Salir
 Cierra la aplicación de forma segura.
+
+### 🤖 Asistente IA (pestaña)
+La app incluye una pestaña de IA con dos paneles:
+
+- **🧠 Claude (Texto)**: Escribí un prompt y Claude te responde con texto. Podés copiar la respuesta al portapapeles con un click.
+- **🎨 Gemini (Imágenes)**: Describí una imagen y Gemini la genera. Podés guardarla a tu PC con el botón "Guardar imagen".
+
+**Configuración necesaria:** Agregá tus API keys en el archivo `.env`:
+```env
+ANTHROPIC_API_KEY=sk-ant-tu-key
+GEMINI_API_KEY=AIzaSy-tu-key
+```
 
 ## 💾 Base de Datos
 

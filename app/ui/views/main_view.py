@@ -16,6 +16,14 @@ COL_HEADERS = ("ID", "Nombre", "Largo", "Ancho", "Alto", "Color", "Precio FOB")
 COL_WIDTHS = (50, 200, 80, 80, 80, 100, 100)
 
 
+def _fmt_num(val) -> str:
+    """Formatea número: max 2 decimales, sin ceros innecesarios."""
+    n = float(val)
+    if n == int(n):
+        return str(int(n))
+    return f"{n:.2f}".rstrip("0")
+
+
 class MainView(tk.Frame):
     """Vista CRUD de productos."""
 
@@ -181,7 +189,7 @@ class MainView(tk.Frame):
         self._tree.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
 
-        self._tree.bind("<Double-1>", lambda e: self._on_edit_selected())
+        self._tree.bind("<Double-1>", lambda e: self._on_show_detail())
         self._tree.bind("<Return>", lambda e: self._on_edit_selected())
         self._tree.bind("<Delete>", lambda e: self._on_delete())
 
@@ -276,6 +284,14 @@ class MainView(tk.Frame):
             self._clear_form()
         self._refresh_tree()
 
+    def _on_show_detail(self) -> None:
+        sel = self._tree.selection()
+        if not sel:
+            return
+        values = self._tree.item(sel[0], "values")
+        # values: (id, nombre, largo, ancho, alto, color, precio_fob)
+        _DetailWindow(self.winfo_toplevel(), values, on_edit=self._on_edit_selected)
+
     def _clear_form(self) -> None:
         self._editing_id = None
         self._nombre_var.set("")
@@ -295,8 +311,98 @@ class MainView(tk.Frame):
         for i, p in enumerate(productos):
             tag = "even" if i % 2 == 0 else "odd"
             self._tree.insert("", "end", values=(
-                p["id"], p["nombre"], p["largo"], p["ancho"],
-                p["alto"], p["color"], p["precio_fob"]),
+                p["id"], p["nombre"], _fmt_num(p["largo"]), _fmt_num(p["ancho"]),
+                _fmt_num(p["alto"]), p["color"], _fmt_num(p["precio_fob"])),
                 tags=(tag,))
         count = len(productos)
         self._count_label.configure(text=f"{count} producto{'s' if count != 1 else ''}")
+
+
+class _DetailWindow(tk.Toplevel):
+    """Ventana de detalle de producto."""
+
+    def __init__(self, master: tk.Widget, values: tuple, on_edit=None):
+        super().__init__(master)
+        self._on_edit = on_edit
+        self.title(f"Producto — {values[1]}")
+        self.configure(bg=theme.BG_PRIMARY)
+        self.resizable(False, False)
+        self.transient(master)
+
+        id_, nombre, largo, ancho, alto, color, precio = values
+
+        # ── Contenedor principal ───────────────────────────────────────────
+        container = tk.Frame(self, bg=theme.BG_PRIMARY)
+        container.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # ── Nombre grande ──────────────────────────────────────────────────
+        tk.Label(container, text=nombre, font=(theme.FONT_FAMILY, 22, "bold"),
+                 bg=theme.BG_PRIMARY, fg=theme.TEXT_PRIMARY,
+                 wraplength=420, justify="left").pack(anchor="w", pady=(0, 4))
+
+        tk.Label(container, text=f"ID: {id_}", font=theme.FONT_SMALL,
+                 bg=theme.BG_PRIMARY, fg=theme.TEXT_MUTED
+                 ).pack(anchor="w")
+
+        # ── Separador ─────────────────────────────────────────────────────
+        ttk.Separator(container, orient="horizontal").pack(fill="x", pady=12)
+
+        # ── Card de info ──────────────────────────────────────────────────
+        card = tk.Frame(container, bg=theme.BG_CARD, bd=1, relief="solid",
+                        highlightbackground=theme.BORDER, highlightthickness=1)
+        card.pack(fill="x", pady=(0, 12))
+
+        fields = [
+            ("Medidas", f"{largo}  x  {ancho}  x  {alto}"),
+            ("Color", color),
+            ("Precio FOB", f"US$ {precio}"),
+        ]
+
+        for i, (label, value) in enumerate(fields):
+            row = tk.Frame(card, bg=theme.BG_CARD)
+            row.pack(fill="x", padx=16, pady=(12 if i == 0 else 6, 12 if i == len(fields) - 1 else 0))
+
+            tk.Label(row, text=label, font=theme.FONT_SMALL,
+                     bg=theme.BG_CARD, fg=theme.TEXT_MUTED, width=12, anchor="w"
+                     ).pack(side="left")
+
+            fnt = (theme.FONT_FAMILY, 16, "bold") if label == "Precio FOB" else (theme.FONT_FAMILY, 14)
+            fg = theme.ACCENT if label == "Precio FOB" else theme.TEXT_PRIMARY
+            tk.Label(row, text=value, font=fnt,
+                     bg=theme.BG_CARD, fg=fg).pack(side="left", padx=(8, 0))
+
+        # ── Botones ──────────────────────────────────────────────────────
+        btn_row = tk.Frame(container, bg=theme.BG_PRIMARY)
+        btn_row.pack(pady=(8, 0))
+
+        tk.Button(btn_row, text="Editar", font=theme.FONT_BOLD,
+                  bg=theme.BTN_WARNING, fg="white", relief="flat", bd=0,
+                  padx=20, pady=6, cursor="hand2",
+                  command=self._do_edit).pack(side="left", padx=(0, 8))
+
+        tk.Button(btn_row, text="Cerrar", font=theme.FONT_BOLD,
+                  bg=theme.BTN_INFO, fg="white", relief="flat", bd=0,
+                  padx=20, pady=6, cursor="hand2",
+                  command=self.destroy).pack(side="left")
+
+        self.bind("<Escape>", lambda e: self.destroy())
+
+        # Forzar layout antes de mostrar
+        self.update_idletasks()
+        # Centrar sobre la ventana padre
+        pw = master.winfo_width()
+        ph = master.winfo_height()
+        px = master.winfo_x()
+        py = master.winfo_y()
+        w = self.winfo_reqwidth()
+        h = self.winfo_reqheight()
+        x = px + (pw - w) // 2
+        y = py + (ph - h) // 2
+        self.geometry(f"+{x}+{y}")
+        self.grab_set()
+        self.focus_set()
+
+    def _do_edit(self) -> None:
+        self.destroy()
+        if self._on_edit:
+            self._on_edit()
