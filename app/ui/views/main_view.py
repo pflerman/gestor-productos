@@ -3,6 +3,7 @@
 import io
 import logging
 import tempfile
+import unicodedata
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
@@ -28,6 +29,13 @@ def _fmt_num(val) -> str:
     if n == int(n):
         return str(int(n))
     return f"{n:.2f}".rstrip("0")
+
+
+def _normalize(text: str) -> str:
+    """Minúsculas + sin acentos/tildes."""
+    text = text.lower()
+    nfkd = unicodedata.normalize("NFD", text)
+    return "".join(c for c in nfkd if unicodedata.category(c) != "Mn")
 
 
 def _texto_qr(prod: dict) -> str:
@@ -83,29 +91,60 @@ class MainView(tk.Frame):
             bg=theme.BG_PRIMARY, fg=theme.COUNT_LABEL_COLOR)
         self._count_label.pack(side="right")
 
-        # ── Filtro de búsqueda ─────────────────────────────────────────────
+        # ── Filtros de búsqueda ───────────────────────────────────────────
         filter_card = tk.Frame(self, bg=theme.BG_CARD, bd=1, relief="solid",
                                highlightbackground=theme.BORDER, highlightthickness=1)
         filter_card.pack(fill="x", padx=20, pady=(0, 8))
 
+        # Campo Buscar
         tk.Label(filter_card, text="Buscar:", font=theme.FONT_BOLD,
                  bg=theme.BG_CARD, fg=theme.TEXT_SECONDARY
-                 ).pack(side="left", padx=(10, 4), pady=8)
+                 ).pack(side="left", padx=(10, 4), pady=6)
 
         self._filter_var = tk.StringVar()
         self._filter_var.trace_add("write", lambda *_: self._refresh_tree())
-        filter_entry = tk.Entry(
+        self._buscar_entry = tk.Entry(
             filter_card, textvariable=self._filter_var,
             font=theme.FONT_NORMAL, bg=theme.BG_INPUT,
             fg=theme.TEXT_PRIMARY, relief="flat", bd=1,
-            highlightbackground=theme.BORDER, highlightthickness=1)
-        filter_entry.pack(side="left", fill="x", expand=True, padx=(0, 6), pady=8)
+            highlightbackground=theme.BORDER, highlightthickness=1, width=25)
+        self._buscar_entry.pack(side="left", padx=(0, 12), pady=6)
+
+        # Campo Excluir
+        tk.Label(filter_card, text="Excluir:", font=theme.FONT_BOLD,
+                 bg=theme.BG_CARD, fg=theme.TEXT_SECONDARY
+                 ).pack(side="left", padx=(0, 4), pady=6)
+
+        self._excluir_var = tk.StringVar()
+        self._excluir_var.trace_add("write", lambda *_: self._refresh_tree())
+        self._excluir_entry = tk.Entry(
+            filter_card, textvariable=self._excluir_var,
+            font=theme.FONT_NORMAL, bg=theme.BG_INPUT,
+            fg=theme.TEXT_PRIMARY, relief="flat", bd=1,
+            highlightbackground=theme.BORDER, highlightthickness=1, width=25)
+        self._excluir_entry.pack(side="left", padx=(0, 10), pady=6)
+
+        # Placeholders
+        self._setup_placeholder(self._buscar_entry, self._filter_var, "Filtrar por texto...")
+        self._setup_placeholder(self._excluir_entry, self._excluir_var, "Palabras a excluir...")
+
+        # Botón limpiar
+        def _limpiar_filtros():
+            self._filter_var.set("")
+            self._excluir_var.set("")
+            # Restaurar placeholders
+            self._buscar_entry.configure(fg=theme.TEXT_MUTED)
+            self._buscar_entry.delete(0, "end")
+            self._buscar_entry.insert(0, "Filtrar por texto...")
+            self._excluir_entry.configure(fg=theme.TEXT_MUTED)
+            self._excluir_entry.delete(0, "end")
+            self._excluir_entry.insert(0, "Palabras a excluir...")
 
         tk.Button(filter_card, text="Limpiar", font=theme.FONT_SMALL,
                   bg=theme.BG_SECONDARY, fg=theme.TEXT_SECONDARY, relief="flat",
                   bd=0, padx=8, pady=2, cursor="hand2",
-                  command=lambda: self._filter_var.set("")
-                  ).pack(side="left", padx=(0, 8), pady=8)
+                  command=_limpiar_filtros
+                  ).pack(side="left", padx=(0, 8), pady=6)
 
         # ── Formulario ────────────────────────────────────────────────────
         form_card = tk.Frame(self, bg=theme.BG_CARD, bd=1, relief="solid",
@@ -279,6 +318,33 @@ class MainView(tk.Frame):
         self._log = LogPanel(self, height=5)
         self._log.pack(fill="x", padx=20, pady=(4, 12))
         self._log.log("App iniciada. Cargá productos con el formulario.")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # PLACEHOLDERS Y FILTROS
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _setup_placeholder(self, entry: tk.Entry, var: tk.StringVar,
+                           placeholder: str) -> None:
+        """Placeholder text gris que desaparece al hacer focus."""
+        def _on_focus_in(e):
+            if entry.get() == placeholder:
+                entry.delete(0, "end")
+                entry.configure(fg=theme.TEXT_PRIMARY)
+
+        def _on_focus_out(e):
+            if not entry.get():
+                entry.insert(0, placeholder)
+                entry.configure(fg=theme.TEXT_MUTED)
+
+        entry.insert(0, placeholder)
+        entry.configure(fg=theme.TEXT_MUTED)
+        entry.bind("<FocusIn>", _on_focus_in)
+        entry.bind("<FocusOut>", _on_focus_out)
+
+    def _get_filter_text(self, var: tk.StringVar, placeholder: str) -> str:
+        """Obtiene el texto del filtro ignorando el placeholder."""
+        val = var.get()
+        return "" if val == placeholder else val
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHECKBOX / SELECCIÓN
@@ -520,10 +586,29 @@ class MainView(tk.Frame):
     def _refresh_tree(self) -> None:
         for item in self._tree.get_children():
             self._tree.delete(item)
-        filtro = self._filter_var.get().strip()
-        productos = db.listar(filtro)
-        for i, p in enumerate(productos):
-            tag = "even" if i % 2 == 0 else "odd"
+
+        buscar_raw = self._get_filter_text(self._filter_var, "Filtrar por texto...")
+        excluir_raw = self._get_filter_text(self._excluir_var, "Palabras a excluir...")
+
+        buscar = _normalize(buscar_raw)
+        excluir_words = [_normalize(w) for w in excluir_raw.split() if w.strip()]
+
+        todos = db.listar()
+        shown = 0
+        for p in todos:
+            # Texto completo de la fila para filtrar
+            row_text = _normalize(
+                f"{p['nombre']} {p.get('sku', '')} {p['color']} "
+                f"{p.get('notas', '')}")
+
+            # Filtro de inclusión
+            if buscar and buscar not in row_text:
+                continue
+            # Filtro de exclusión: cualquier palabra excluye
+            if excluir_words and any(w in row_text for w in excluir_words):
+                continue
+
+            tag = "even" if shown % 2 == 0 else "odd"
             check = "☑" if p["id"] in self._checked else "☐"
             self._tree.insert("", "end", values=(
                 check, p["id"], p.get("sku", "-"), p["nombre"],
@@ -531,8 +616,13 @@ class MainView(tk.Frame):
                 _fmt_num(p["alto"]), p["color"], _fmt_num(p["precio_fob"]),
                 p.get("notas", "")),
                 tags=(tag,))
-        count = len(productos)
-        self._count_label.configure(text=f"{count} producto{'s' if count != 1 else ''}")
+            shown += 1
+
+        total = len(todos)
+        if shown == total:
+            self._count_label.configure(text=f"{total} producto{'s' if total != 1 else ''}")
+        else:
+            self._count_label.configure(text=f"Mostrando {shown} de {total}")
 
 
 class _DetailWindow(tk.Toplevel):
