@@ -275,7 +275,7 @@ class IAView(tk.Frame):
 
             def _do():
                 return client.models.generate_content(
-                    model="gemini-2.5-flash-preview-05-20",
+                    model="gemini-2.5-flash-image",
                     contents=[types.Content(parts=[types.Part.from_text(text=prompt)])],
                     config=types.GenerateContentConfig(
                         response_modalities=["IMAGE", "TEXT"]),
