@@ -598,9 +598,9 @@ class MainView(tk.Frame):
         for prod in productos:
             pdf.add_page()
 
-            # Título del producto
+            # Título del producto (multi_cell para que no se corte)
             pdf.set_font("Helvetica", "B", 22)
-            pdf.cell(0, 15, prod["nombre"], new_x="LMARGIN", new_y="NEXT", align="C")
+            pdf.multi_cell(0, 12, prod["nombre"], new_x="LMARGIN", new_y="NEXT", align="C")
 
             pdf.ln(5)
 
@@ -619,12 +619,12 @@ class MainView(tk.Frame):
             pdf.cell(0, 8, f"Color: {prod['color']}  |  Precio FOB: US$ {_fmt_num(prod['precio_fob'])}",
                      new_x="LMARGIN", new_y="NEXT", align="C")
 
-            # Notas
+            # Notas (fuente más grande, bold itálica, multi_cell para wrap)
             notas = prod.get("notas", "")
             if notas:
                 pdf.ln(4)
-                pdf.set_font("Helvetica", "I", 10)
-                pdf.cell(0, 8, f"Notas: {notas}", new_x="LMARGIN", new_y="NEXT", align="C")
+                pdf.set_font("Helvetica", "BI", 13)
+                pdf.multi_cell(0, 8, f"Notas: {notas}", new_x="LMARGIN", new_y="NEXT", align="C")
 
             pdf.ln(10)
 
