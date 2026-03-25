@@ -1,4 +1,9 @@
-"""Base de datos en Turso (SQLite en la nube) para productos."""
+"""Base de datos en Turso (SQLite en la nube) con cache local en memoria.
+
+Al iniciar, descarga todos los productos a una lista en memoria.
+Las lecturas (listar, filtrar) trabajan contra la cache → instantáneo.
+Las escrituras (agregar, editar, eliminar) van a Turso Y actualizan la cache (write-through).
+"""
 
 import os
 import string
@@ -17,6 +22,10 @@ COLORES_VALIDOS = ("Blanco", "Negro", "Rosa", "Verde", "Violeta")
 
 _SKU_CHARS = string.ascii_uppercase + string.digits
 _SKU_LEN = 8
+
+# Cache en memoria: lista de dicts con todos los productos
+_cache: list[dict] = []
+_cache_loaded = False
 
 
 def _execute(sql: str, args: list | None = None) -> dict:
@@ -73,13 +82,21 @@ def _cast_producto(d: dict) -> dict:
     return d
 
 
+def _load_cache() -> None:
+    """Descarga todos los productos de Turso a la cache en memoria."""
+    global _cache, _cache_loaded
+    resp = _execute("SELECT * FROM productos ORDER BY id DESC")
+    _cache = [_cast_producto(d) for d in _rows_to_dicts(resp)]
+    _cache_loaded = True
+
+
 def _generar_sku_unico() -> str:
-    """Genera un SKU único con formato GP-XXXXXXXX."""
+    """Genera un SKU único con formato GP-XXXXXXXX (chequea contra la cache)."""
+    skus_existentes = {p["sku"] for p in _cache if p.get("sku")}
     while True:
         code = "".join(random.choices(_SKU_CHARS, k=_SKU_LEN))
         sku = f"GP-{code}"
-        resp = _execute("SELECT 1 FROM productos WHERE sku = ?", [sku])
-        if not resp["rows"]:
+        if sku not in skus_existentes:
             return sku
 
 
@@ -97,37 +114,51 @@ def init_db() -> None:
             notas TEXT NOT NULL DEFAULT ''
         )
     """)
+    _load_cache()
 
 
-def listar(filtro: str = "") -> list[dict]:
-    sql = "SELECT * FROM productos"
-    params: list = []
-    if filtro:
-        sql += " WHERE nombre LIKE ? OR color LIKE ? OR sku LIKE ? OR notas LIKE ?"
-        like = f"%{filtro}%"
-        params = [like, like, like, like]
-    sql += " ORDER BY id DESC"
-    resp = _execute(sql, params if params else None)
-    return [_cast_producto(d) for d in _rows_to_dicts(resp)]
+def listar() -> list[dict]:
+    """Retorna todos los productos desde la cache (sin HTTP)."""
+    if not _cache_loaded:
+        _load_cache()
+    return list(_cache)
 
 
 def agregar(nombre: str, largo: float, ancho: float, alto: float,
             color: str, precio_fob: float, notas: str = "") -> int:
     sku = _generar_sku_unico()
+    # Write-through: Turso primero
     resp = _execute(
         "INSERT INTO productos (nombre, largo, ancho, alto, color, precio_fob, sku, notas) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [nombre, largo, ancho, alto, color, precio_fob, sku, notas])
-    return resp.get("last_insert_rowid", 0)
+    new_id = resp.get("last_insert_rowid", 0)
+    # Actualizar cache
+    _cache.insert(0, _cast_producto({
+        "id": new_id, "nombre": nombre, "largo": largo, "ancho": ancho,
+        "alto": alto, "color": color, "precio_fob": precio_fob,
+        "sku": sku, "notas": notas,
+    }))
+    return new_id
 
 
 def actualizar(id_: int, nombre: str, largo: float, ancho: float, alto: float,
                color: str, precio_fob: float, notas: str = "") -> None:
+    # Write-through: Turso primero
     _execute(
         "UPDATE productos SET nombre=?, largo=?, ancho=?, alto=?, color=?, precio_fob=?, notas=? "
         "WHERE id=?",
         [nombre, largo, ancho, alto, color, precio_fob, notas, id_])
+    # Actualizar cache
+    for p in _cache:
+        if p["id"] == id_:
+            p.update(nombre=nombre, largo=largo, ancho=ancho, alto=alto,
+                     color=color, precio_fob=precio_fob, notas=notas)
+            break
 
 
 def eliminar(id_: int) -> None:
+    # Write-through: Turso primero
     _execute("DELETE FROM productos WHERE id=?", [id_])
+    # Actualizar cache
+    _cache[:] = [p for p in _cache if p["id"] != id_]
