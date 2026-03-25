@@ -10,9 +10,10 @@ from pathlib import Path
 
 import qrcode
 from fpdf import FPDF
+from PIL import Image, ImageDraw, ImageTk
 
 from app.ui import theme
-from app.ui.components.log_panel import LogPanel
+
 from app import db
 
 logger = logging.getLogger(__name__)
@@ -93,13 +94,16 @@ class MainView(tk.Frame):
 
         # ── Filtros de búsqueda ───────────────────────────────────────────
         filter_card = tk.Frame(self, bg=theme.BG_CARD, bd=1, relief="solid",
-                               highlightbackground=theme.BORDER, highlightthickness=1)
+                               highlightbackground=theme.ACCENT, highlightthickness=2)
         filter_card.pack(fill="x", padx=20, pady=(0, 8))
 
-        # Campo Buscar
+        # Campo Buscar (ícono lupa dibujado con PIL)
+        self._search_icon = self._make_icon(16, theme.ACCENT, self._draw_search)
+        tk.Label(filter_card, image=self._search_icon,
+                 bg=theme.BG_CARD).pack(side="left", padx=(10, 2), pady=6)
         tk.Label(filter_card, text="Buscar:", font=theme.FONT_BOLD,
-                 bg=theme.BG_CARD, fg=theme.TEXT_SECONDARY
-                 ).pack(side="left", padx=(10, 4), pady=6)
+                 bg=theme.BG_CARD, fg=theme.ACCENT
+                 ).pack(side="left", padx=(0, 4), pady=6)
 
         self._filter_var = tk.StringVar()
         self._filter_var.trace_add("write", lambda *_: self._refresh_tree())
@@ -110,9 +114,12 @@ class MainView(tk.Frame):
             highlightbackground=theme.BORDER, highlightthickness=1, width=25)
         self._buscar_entry.pack(side="left", padx=(0, 12), pady=6)
 
-        # Campo Excluir
+        # Campo Excluir (ícono X dibujado con PIL)
+        self._exclude_icon = self._make_icon(14, theme.BTN_DANGER, self._draw_exclude)
+        tk.Label(filter_card, image=self._exclude_icon,
+                 bg=theme.BG_CARD).pack(side="left", padx=(0, 2), pady=6)
         tk.Label(filter_card, text="Excluir:", font=theme.FONT_BOLD,
-                 bg=theme.BG_CARD, fg=theme.TEXT_SECONDARY
+                 bg=theme.BG_CARD, fg=theme.BTN_DANGER
                  ).pack(side="left", padx=(0, 4), pady=6)
 
         self._excluir_var = tk.StringVar()
@@ -159,12 +166,22 @@ class MainView(tk.Frame):
         fields_frame = tk.Frame(form_card, bg=theme.BG_CARD)
         fields_frame.pack(fill="x", padx=12, pady=(0, 4))
 
+        # Crear íconos del formulario
+        ic = theme.TEXT_SECONDARY
+        self._icon_tag = self._make_icon(14, ic, self._draw_tag)
+        self._icon_ruler = self._make_icon(14, ic, self._draw_ruler)
+        self._icon_palette = self._make_icon(14, ic, self._draw_palette)
+        self._icon_dollar = self._make_icon(14, ic, self._draw_dollar)
+        self._icon_pencil = self._make_icon(14, ic, self._draw_pencil)
+
         # Row 1: Nombre
         row1 = tk.Frame(fields_frame, bg=theme.BG_CARD)
         row1.pack(fill="x", pady=2)
 
+        tk.Label(row1, image=self._icon_tag,
+                 bg=theme.BG_CARD).pack(side="left", padx=(0, 2))
         tk.Label(row1, text="Nombre:", font=theme.FONT_NORMAL,
-                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY, width=10, anchor="e"
+                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY, anchor="e"
                  ).pack(side="left", padx=(0, 4))
         self._nombre_var = tk.StringVar()
         tk.Entry(row1, textvariable=self._nombre_var, font=theme.FONT_NORMAL,
@@ -176,8 +193,10 @@ class MainView(tk.Frame):
         row2 = tk.Frame(fields_frame, bg=theme.BG_CARD)
         row2.pack(fill="x", pady=2)
 
+        tk.Label(row2, image=self._icon_ruler,
+                 bg=theme.BG_CARD).pack(side="left", padx=(0, 2))
         tk.Label(row2, text="Largo:", font=theme.FONT_NORMAL,
-                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY, width=10, anchor="e"
+                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY, anchor="e"
                  ).pack(side="left", padx=(0, 4))
         self._largo_var = tk.StringVar(value="0")
         tk.Entry(row2, textvariable=self._largo_var, font=theme.FONT_NORMAL,
@@ -207,8 +226,10 @@ class MainView(tk.Frame):
         row3 = tk.Frame(fields_frame, bg=theme.BG_CARD)
         row3.pack(fill="x", pady=2)
 
+        tk.Label(row3, image=self._icon_palette,
+                 bg=theme.BG_CARD).pack(side="left", padx=(0, 2))
         tk.Label(row3, text="Color:", font=theme.FONT_NORMAL,
-                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY, width=10, anchor="e"
+                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY, anchor="e"
                  ).pack(side="left", padx=(0, 4))
         self._color_var = tk.StringVar(value=COLORES[0])
         color_combo = ttk.Combobox(row3, textvariable=self._color_var,
@@ -216,6 +237,8 @@ class MainView(tk.Frame):
                                    font=theme.FONT_NORMAL, width=12)
         color_combo.pack(side="left", padx=(0, 8))
 
+        tk.Label(row3, image=self._icon_dollar,
+                 bg=theme.BG_CARD).pack(side="left", padx=(4, 2))
         tk.Label(row3, text="Precio FOB:", font=theme.FONT_NORMAL,
                  bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY
                  ).pack(side="left", padx=(0, 4))
@@ -229,8 +252,10 @@ class MainView(tk.Frame):
         row4 = tk.Frame(fields_frame, bg=theme.BG_CARD)
         row4.pack(fill="x", pady=2)
 
+        tk.Label(row4, image=self._icon_pencil,
+                 bg=theme.BG_CARD).pack(side="left", padx=(0, 2))
         tk.Label(row4, text="Notas:", font=theme.FONT_NORMAL,
-                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY, width=10, anchor="e"
+                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY, anchor="e"
                  ).pack(side="left", padx=(0, 4), anchor="n")
         self._notas_var = tk.StringVar()
         tk.Entry(row4, textvariable=self._notas_var, font=theme.FONT_NORMAL,
@@ -315,14 +340,95 @@ class MainView(tk.Frame):
                   padx=14, pady=4, cursor="hand2",
                   command=self._on_delete).pack(side="right", padx=(0, 6))
 
-        # ── Log panel ─────────────────────────────────────────────────────
-        self._log = LogPanel(self, height=5)
-        self._log.pack(fill="x", padx=20, pady=(4, 12))
-        self._log.log("App iniciada. Cargá productos con el formulario.")
 
     # ══════════════════════════════════════════════════════════════════════════
     # PLACEHOLDERS Y FILTROS
     # ══════════════════════════════════════════════════════════════════════════
+
+    @staticmethod
+    def _make_icon(size: int, color: str, draw_func) -> ImageTk.PhotoImage:
+        """Crea un ícono dibujado con PIL."""
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        draw_func(draw, size, color)
+        return ImageTk.PhotoImage(img)
+
+    @staticmethod
+    def _draw_search(draw, s, color):
+        """Lupa: círculo + mango."""
+        r = s * 0.35
+        cx, cy = s * 0.38, s * 0.38
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=color, width=2)
+        draw.line([cx + r * 0.7, cy + r * 0.7, s - 1, s - 1], fill=color, width=2)
+
+    @staticmethod
+    def _draw_exclude(draw, s, color):
+        """X de excluir."""
+        m = s * 0.2
+        draw.line([m, m, s - m, s - m], fill=color, width=2)
+        draw.line([s - m, m, m, s - m], fill=color, width=2)
+
+    @staticmethod
+    def _draw_tag(draw, s, color):
+        """Etiqueta/tag para Nombre."""
+        m = s * 0.15
+        # Rectángulo redondeado (simplificado)
+        draw.rounded_rectangle([m, m + s * 0.15, s - m, s - m - s * 0.15],
+                               radius=3, outline=color, width=2)
+        # Líneas internas (texto simulado)
+        draw.line([m + s * 0.2, s * 0.42, s - m - s * 0.2, s * 0.42], fill=color, width=1)
+        draw.line([m + s * 0.2, s * 0.58, s * 0.6, s * 0.58], fill=color, width=1)
+
+    @staticmethod
+    def _draw_ruler(draw, s, color):
+        """Regla para medidas."""
+        m = s * 0.1
+        # Regla horizontal
+        y_top = s * 0.35
+        y_bot = s * 0.65
+        draw.rectangle([m, y_top, s - m, y_bot], outline=color, width=2)
+        # Marcas de la regla
+        for i in range(1, 5):
+            x = m + (s - 2 * m) * i / 5
+            tick_h = s * 0.12 if i % 2 == 0 else s * 0.08
+            draw.line([x, y_top, x, y_top + tick_h], fill=color, width=1)
+
+    @staticmethod
+    def _draw_palette(draw, s, color):
+        """Paleta/gota de color."""
+        cx = s * 0.5
+        # Gota
+        draw.ellipse([s * 0.2, s * 0.35, s * 0.8, s * 0.85], outline=color, width=2)
+        draw.polygon([(cx, s * 0.1), (s * 0.3, s * 0.5), (s * 0.7, s * 0.5)],
+                     outline=color)
+
+    @staticmethod
+    def _draw_dollar(draw, s, color):
+        """Billete: rectángulo con círculo adentro."""
+        m = s * 0.05
+        # Rectángulo del billete
+        draw.rounded_rectangle([m, s * 0.2, s - m, s * 0.8], radius=2,
+                               outline=color, width=2)
+        # Círculo central (medallón)
+        cx, cy = s * 0.5, s * 0.5
+        r = s * 0.15
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], outline=color, width=1)
+        # Línea horizontal decorativa izquierda y derecha
+        draw.line([m + s * 0.08, cy, cx - r - s * 0.05, cy], fill=color, width=1)
+        draw.line([cx + r + s * 0.05, cy, s - m - s * 0.08, cy], fill=color, width=1)
+
+    @staticmethod
+    def _draw_pencil(draw, s, color):
+        """Lápiz para notas."""
+        m = s * 0.15
+        # Cuerpo del lápiz (línea diagonal)
+        draw.line([s - m, m, m, s - m], fill=color, width=2)
+        # Punta
+        draw.line([m, s - m, m + s * 0.12, s - m - s * 0.05], fill=color, width=2)
+        draw.line([m, s - m, m + s * 0.05, s - m - s * 0.12], fill=color, width=2)
+        # Borrador (rayita arriba)
+        draw.line([s - m - s * 0.12, m + s * 0.12,
+                   s - m + s * 0.02, m - s * 0.02], fill=color, width=2)
 
     def _setup_placeholder(self, entry: tk.Entry, var: tk.StringVar,
                            placeholder: str) -> None:
@@ -399,7 +505,6 @@ class MainView(tk.Frame):
         """Copia texto al portapapeles."""
         self.clipboard_clear()
         self.clipboard_append(texto)
-        self._log.log(f"📋 Copiado: {texto[:60]}{'...' if len(texto) > 60 else ''}")
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHECKBOX / SELECCIÓN
@@ -433,7 +538,6 @@ class MainView(tk.Frame):
             self._checked.add(prod_id)
             values[0] = "☑"
             self._tree.item(item, values=values)
-        self._log.log(f"✅ {len(self._checked)} productos seleccionados")
 
     def _on_deselect_all(self) -> None:
         self._checked.clear()
@@ -441,7 +545,6 @@ class MainView(tk.Frame):
             values = list(self._tree.item(item, "values"))
             values[0] = "☐"
             self._tree.item(item, values=values)
-        self._log.log("❌ Selección limpiada")
 
     # ══════════════════════════════════════════════════════════════════════════
     # PDF CON QR
@@ -470,7 +573,6 @@ class MainView(tk.Frame):
 
         try:
             self._generar_pdf(seleccionados, filepath)
-            self._log.log(f"📄 PDF generado: {Path(filepath).name} ({len(seleccionados)} productos)")
             messagebox.showinfo("PDF generado", f"Se guardó en:\n{filepath}")
         except Exception as e:
             logger.exception("Error generando PDF")
@@ -567,13 +669,11 @@ class MainView(tk.Frame):
 
         if self._editing_id is not None:
             db.actualizar(self._editing_id, **vals)
-            self._log.log(f"Producto #{self._editing_id} actualizado: {vals['nombre']}")
             self._editing_id = None
             self._form_title.configure(text="Nuevo Producto")
             self._btn_save.configure(text="Agregar", bg=theme.BTN_SUCCESS)
         else:
             new_id = db.agregar(**vals)
-            self._log.log(f"Producto #{new_id} agregado: {vals['nombre']}")
 
         self._clear_form()
         self._refresh_tree()
@@ -608,7 +708,6 @@ class MainView(tk.Frame):
             return
         db.eliminar(id_)
         self._checked.discard(id_)
-        self._log.log(f"Producto #{id_} eliminado: {nombre}")
         if self._editing_id == id_:
             self._clear_form()
         self._refresh_tree()
