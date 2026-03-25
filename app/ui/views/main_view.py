@@ -293,7 +293,10 @@ class MainView(tk.Frame):
         self._tree = ttk.Treeview(tree_frame, columns=COLUMNS, show="headings",
                                   selectmode="browse")
         for col, hdr, width in zip(COLUMNS, COL_HEADERS, COL_WIDTHS):
-            self._tree.heading(col, text=hdr)
+            if col == "check":
+                self._tree.heading(col, text=hdr, command=self._on_toggle_all_checks)
+            else:
+                self._tree.heading(col, text=hdr)
             if col == "check":
                 self._tree.column(col, width=width, minwidth=35, anchor="center",
                                   stretch=False)
@@ -541,6 +544,18 @@ class MainView(tk.Frame):
             self._checked.add(prod_id)
             values[0] = "☑"
         self._tree.item(item, values=values)
+
+    def _on_toggle_all_checks(self) -> None:
+        """Click en heading ✓: si hay alguno sin check → seleccionar todos, sino deseleccionar todos."""
+        all_checked = all(
+            int(self._tree.item(item, "values")[1]) in self._checked
+            for item in self._tree.get_children()
+        ) if self._tree.get_children() else False
+
+        if all_checked:
+            self._on_deselect_all()
+        else:
+            self._on_select_all()
 
     def _on_select_all(self) -> None:
         for item in self._tree.get_children():
