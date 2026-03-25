@@ -645,7 +645,7 @@ class MainView(tk.Frame):
         buscar_raw = self._get_filter_text(self._filter_var, "Filtrar por texto...")
         excluir_raw = self._get_filter_text(self._excluir_var, "Palabras a excluir...")
 
-        buscar = _normalize(buscar_raw)
+        buscar_words = [_normalize(w) for w in buscar_raw.split() if w.strip()]
         excluir_words = [_normalize(w) for w in excluir_raw.split() if w.strip()]
 
         todos = db.listar()
@@ -656,11 +656,11 @@ class MainView(tk.Frame):
                 f"{p['nombre']} {p.get('sku', '')} {p['color']} "
                 f"{p.get('notas', '')}")
 
-            # Filtro de inclusión
-            if buscar and buscar not in row_text:
+            # Filtro de inclusión: todas las palabras deben estar presentes
+            if buscar_words and not all(w in row_text for w in buscar_words):
                 continue
-            # Filtro de exclusión: cualquier palabra excluye
-            if excluir_words and any(w in row_text for w in excluir_words):
+            # Filtro de exclusión: excluye si TODAS las palabras están presentes
+            if excluir_words and all(w in row_text for w in excluir_words):
                 continue
 
             tag = "even" if shown % 2 == 0 else "odd"
