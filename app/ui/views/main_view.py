@@ -279,6 +279,13 @@ class MainView(tk.Frame):
             padx=14, pady=4, cursor="hand2", command=self._clear_form)
         self._btn_cancel.pack(side="left")
 
+        # Enter en cualquier campo del formulario → agregar/guardar
+        for w in (row1, row2, row3, row4):
+            for child in w.winfo_children():
+                if isinstance(child, tk.Entry):
+                    child.bind("<Return>", lambda e: self._on_save())
+                    child.bind("<KP_Enter>", lambda e: self._on_save())
+
         # ── Treeview ───────────────────────────────────────────────────────
         tree_frame = tk.Frame(self, bg=theme.BG_PRIMARY)
         tree_frame.pack(fill="both", expand=True, padx=20, pady=(0, 4))
@@ -498,6 +505,10 @@ class MainView(tk.Frame):
                              f"{nombre}\nSKU: {sku}\n"
                              f"Medidas: {largo} x {ancho} x {alto} cm"
                              + (f"\nNotas: {notas}" if notas else "")))
+        menu.add_separator()
+        id_ = int(values[1])
+        menu.add_command(label=f"🗑 Eliminar '{nombre}'",
+                         command=lambda: self._on_delete_by_id(id_, nombre))
 
         menu.tk_popup(event.x_root, event.y_root)
 
@@ -702,8 +713,9 @@ class MainView(tk.Frame):
             messagebox.showinfo("Selección", "Seleccioná un producto para eliminar.")
             return
         values = self._tree.item(sel[0], "values")
-        id_ = int(values[1])
-        nombre = values[3]
+        self._on_delete_by_id(int(values[1]), values[3])
+
+    def _on_delete_by_id(self, id_: int, nombre: str) -> None:
         if not messagebox.askyesno("Confirmar", f"¿Eliminar '{nombre}' (#{id_})?"):
             return
         db.eliminar(id_)
