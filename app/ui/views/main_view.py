@@ -18,7 +18,7 @@ from app import db
 
 logger = logging.getLogger(__name__)
 
-COLORES = ("Blanco", "Negro", "Rosa", "Verde", "Violeta", "Transparente", "Rojo", "Azul")
+COLORES = ("Blanco", "Negro", "Blanco negro", "Rosa", "Verde", "Violeta", "Transparente", "Rojo", "Azul")
 COLUMNS = ("check", "id", "sku", "nombre", "largo", "ancho", "alto", "color", "precio_fob", "notas")
 COL_HEADERS = ("✓", "ID", "SKU", "Nombre", "Largo", "Ancho", "Alto", "Color", "Precio FOB", "Notas")
 COL_WIDTHS = (35, 50, 110, 200, 80, 80, 80, 100, 100, 0)
