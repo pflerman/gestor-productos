@@ -19,7 +19,7 @@ class AppWindow(tk.Tk):
 
         self.title("Gestor Productos")
         self.geometry("1100x800")
-        self.minsize(800, 600)
+        self.minsize(400, 300)
         self.configure(bg=theme.BG_PRIMARY)
 
         self._build()
