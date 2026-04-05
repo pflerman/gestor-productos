@@ -19,9 +19,9 @@ from app import db
 logger = logging.getLogger(__name__)
 
 COLORES = ("Blanco", "Negro", "Blanco negro", "Rosa", "Verde", "Violeta", "Transparente", "Rojo", "Azul")
-COLUMNS = ("check", "id", "sku", "nombre", "largo", "ancho", "alto", "color", "precio_fob", "notas")
-COL_HEADERS = ("✓", "ID", "SKU", "Nombre", "Largo", "Ancho", "Alto", "Color", "Precio FOB", "Notas")
-COL_WIDTHS = (35, 50, 110, 200, 80, 80, 80, 100, 100, 0)
+COLUMNS = ("check", "id", "sku", "nombre", "largo", "ancho", "alto", "color", "precio_fob", "notas", "etiquetas")
+COL_HEADERS = ("✓", "ID", "SKU", "Nombre", "Largo", "Ancho", "Alto", "Color", "Precio FOB", "Notas", "Etiquetas")
+COL_WIDTHS = (35, 50, 110, 200, 80, 80, 80, 100, 100, 0, 150)
 
 
 def _fmt_num(val) -> str:
@@ -51,6 +51,9 @@ def _texto_qr(prod: dict) -> str:
     notas = prod.get("notas", "")
     if notas:
         lines.append(f"Notas: {notas}")
+    etiquetas = prod.get("etiquetas", "")
+    if etiquetas:
+        lines.append(f"Etiquetas: {etiquetas}")
     return "\n".join(lines)
 
 
@@ -263,6 +266,21 @@ class MainView(tk.Frame):
                  highlightbackground=theme.BORDER, highlightthickness=1
                  ).pack(side="left", fill="x", expand=True, padx=(0, 4))
 
+        # Row 5: Etiquetas
+        row5 = tk.Frame(fields_frame, bg=theme.BG_CARD)
+        row5.pack(fill="x", pady=2)
+
+        tk.Label(row5, image=self._icon_tag,
+                 bg=theme.BG_CARD).pack(side="left", padx=(0, 2))
+        tk.Label(row5, text="Etiquetas:", font=theme.FONT_NORMAL,
+                 bg=theme.BG_CARD, fg=theme.TEXT_PRIMARY, anchor="e"
+                 ).pack(side="left", padx=(0, 4))
+        self._etiquetas_var = tk.StringVar()
+        tk.Entry(row5, textvariable=self._etiquetas_var, font=theme.FONT_NORMAL,
+                 bg=theme.BG_INPUT, fg=theme.TEXT_PRIMARY, relief="flat", bd=1,
+                 highlightbackground=theme.BORDER, highlightthickness=1
+                 ).pack(side="left", fill="x", expand=True, padx=(0, 4))
+
         # Botones del formulario
         btn_frame = tk.Frame(form_card, bg=theme.BG_CARD)
         btn_frame.pack(fill="x", padx=12, pady=(4, 8))
@@ -280,7 +298,7 @@ class MainView(tk.Frame):
         self._btn_cancel.pack(side="left")
 
         # Enter en cualquier campo del formulario → agregar/guardar
-        for w in (row1, row2, row3, row4):
+        for w in (row1, row2, row3, row4, row5):
             for child in w.winfo_children():
                 if isinstance(child, tk.Entry):
                     child.bind("<Return>", lambda e: self._on_save())
@@ -302,6 +320,8 @@ class MainView(tk.Frame):
                                   stretch=False)
             elif col == "notas":
                 self._tree.column(col, width=0, minwidth=0, stretch=False)
+            elif col == "etiquetas":
+                self._tree.column(col, width=width, minwidth=50, anchor="w")
             else:
                 anchor = "e" if col in ("largo", "ancho", "alto", "precio_fob", "id") else "w"
                 self._tree.column(col, width=width, minwidth=40, anchor=anchor)
@@ -473,7 +493,7 @@ class MainView(tk.Frame):
         if not item:
             return
         self._tree.selection_set(item)
-        # values: (check, id, sku, nombre, largo, ancho, alto, color, precio_fob, notas)
+        # values: (check, id, sku, nombre, largo, ancho, alto, color, precio_fob, notas, etiquetas)
         values = self._tree.item(item, "values")
         nombre = values[3]
         sku = values[2]
@@ -481,6 +501,7 @@ class MainView(tk.Frame):
         ancho = values[5]
         alto = values[6]
         notas = values[9] if len(values) > 9 else ""
+        etiquetas = values[10] if len(values) > 10 else ""
 
         menu = tk.Menu(self, tearoff=0)
         menu.add_command(label=f"📋 Copiar SKU: {sku}",
@@ -503,11 +524,16 @@ class MainView(tk.Frame):
                 f"Las medidas de {nombre} son: {largo} cm de largo, "
                 f"{ancho} cm de ancho y {alto} cm de alto"))
         menu.add_separator()
+        if etiquetas:
+            etiq_preview = etiquetas if len(etiquetas) <= 40 else etiquetas[:40] + "..."
+            menu.add_command(label=f"📋 Copiar Etiquetas: {etiq_preview}",
+                             command=lambda: self._copiar(etiquetas))
         menu.add_command(label="📋 Copiar todo",
                          command=lambda: self._copiar(
                              f"{nombre}\nSKU: {sku}\n"
                              f"Medidas: {largo} x {ancho} x {alto} cm"
-                             + (f"\nNotas: {notas}" if notas else "")))
+                             + (f"\nNotas: {notas}" if notas else "")
+                             + (f"\nEtiquetas: {etiquetas}" if etiquetas else "")))
         menu.add_separator()
         id_ = int(values[1])
         menu.add_command(label=f"🗑 Eliminar '{nombre}'",
@@ -641,6 +667,13 @@ class MainView(tk.Frame):
                 pdf.set_font("Helvetica", "BI", 13)
                 pdf.multi_cell(0, 8, f"Notas: {notas}", new_x="LMARGIN", new_y="NEXT", align="C")
 
+            # Etiquetas
+            etiquetas = prod.get("etiquetas", "")
+            if etiquetas:
+                pdf.ln(2)
+                pdf.set_font("Helvetica", "I", 11)
+                pdf.multi_cell(0, 7, f"Etiquetas: {etiquetas}", new_x="LMARGIN", new_y="NEXT", align="C")
+
             pdf.ln(10)
 
             # QR con info completa del producto
@@ -685,8 +718,10 @@ class MainView(tk.Frame):
             return None
         color = self._color_var.get()
         notas = self._notas_var.get().strip()
+        etiquetas = self._etiquetas_var.get().strip()
         return dict(nombre=nombre, largo=largo, ancho=ancho, alto=alto,
-                    color=color, precio_fob=precio_fob, notas=notas)
+                    color=color, precio_fob=precio_fob, notas=notas,
+                    etiquetas=etiquetas)
 
     def _on_save(self) -> None:
         vals = self._get_form_values()
@@ -710,7 +745,7 @@ class MainView(tk.Frame):
             messagebox.showinfo("Selección", "Seleccioná un producto para editar.")
             return
         values = self._tree.item(sel[0], "values")
-        # values: (check, id, sku, nombre, largo, ancho, alto, color, precio_fob, notas)
+        # values: (check, id, sku, nombre, largo, ancho, alto, color, precio_fob, notas, etiquetas)
         self._editing_id = int(values[1])
         self._nombre_var.set(values[3])
         self._largo_var.set(values[4])
@@ -719,6 +754,7 @@ class MainView(tk.Frame):
         self._color_var.set(values[7])
         self._precio_var.set(values[8])
         self._notas_var.set(values[9] if len(values) > 9 else "")
+        self._etiquetas_var.set(values[10] if len(values) > 10 else "")
         self._form_title.configure(text=f"Editando Producto #{self._editing_id}")
         self._btn_save.configure(text="Guardar", bg=theme.BTN_WARNING)
 
@@ -749,7 +785,8 @@ class MainView(tk.Frame):
             id=values[1], sku=values[2], nombre=values[3],
             largo=values[4], ancho=values[5], alto=values[6],
             color=values[7], precio_fob=values[8],
-            notas=values[9] if len(values) > 9 else "")
+            notas=values[9] if len(values) > 9 else "",
+            etiquetas=values[10] if len(values) > 10 else "")
         _DetailWindow(self.winfo_toplevel(), prod, on_edit=self._on_edit_selected)
 
     def _clear_form(self) -> None:
@@ -761,6 +798,7 @@ class MainView(tk.Frame):
         self._color_var.set(COLORES[0])
         self._precio_var.set("0")
         self._notas_var.set("")
+        self._etiquetas_var.set("")
         self._form_title.configure(text="Nuevo Producto")
         self._btn_save.configure(text="Agregar", bg=theme.BTN_SUCCESS)
 
@@ -780,7 +818,7 @@ class MainView(tk.Frame):
             # Texto completo de la fila para filtrar
             row_text = _normalize(
                 f"{p['nombre']} {p.get('sku', '')} {p['color']} "
-                f"{p.get('notas', '')}")
+                f"{p.get('notas', '')} {p.get('etiquetas', '')}")
 
             # Filtro de inclusión: todas las palabras deben estar presentes
             if buscar_words and not all(w in row_text for w in buscar_words):
@@ -795,7 +833,7 @@ class MainView(tk.Frame):
                 check, p["id"], p.get("sku", "-"), p["nombre"],
                 _fmt_num(p["largo"]), _fmt_num(p["ancho"]),
                 _fmt_num(p["alto"]), p["color"], _fmt_num(p["precio_fob"]),
-                p.get("notas", "")),
+                p.get("notas", ""), p.get("etiquetas", "")),
                 tags=(tag,))
             shown += 1
 
@@ -826,6 +864,7 @@ class _DetailWindow(tk.Toplevel):
         color = prod["color"]
         precio = prod["precio_fob"]
         notas = prod.get("notas", "")
+        etiquetas = prod.get("etiquetas", "")
 
         # ── Contenedor principal ───────────────────────────────────────────
         container = tk.Frame(self, bg=theme.BG_PRIMARY)
@@ -856,6 +895,8 @@ class _DetailWindow(tk.Toplevel):
         ]
         if notas:
             fields.append(("Notas", notas))
+        if etiquetas:
+            fields.append(("Etiquetas", etiquetas))
 
         for i, (label, value) in enumerate(fields):
             row = tk.Frame(card, bg=theme.BG_CARD)

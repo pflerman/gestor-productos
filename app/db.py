@@ -111,9 +111,15 @@ def init_db() -> None:
             color TEXT NOT NULL DEFAULT 'Blanco',
             precio_fob REAL NOT NULL DEFAULT 0,
             sku TEXT UNIQUE,
-            notas TEXT NOT NULL DEFAULT ''
+            notas TEXT NOT NULL DEFAULT '',
+            etiquetas TEXT NOT NULL DEFAULT ''
         )
     """)
+    # Migración: agregar columna etiquetas si no existe
+    try:
+        _execute("ALTER TABLE productos ADD COLUMN etiquetas TEXT NOT NULL DEFAULT ''")
+    except Exception:
+        pass  # La columna ya existe
     _load_cache()
 
 
@@ -125,35 +131,38 @@ def listar() -> list[dict]:
 
 
 def agregar(nombre: str, largo: float, ancho: float, alto: float,
-            color: str, precio_fob: float, notas: str = "") -> int:
+            color: str, precio_fob: float, notas: str = "",
+            etiquetas: str = "") -> int:
     sku = _generar_sku_unico()
     # Write-through: Turso primero
     resp = _execute(
-        "INSERT INTO productos (nombre, largo, ancho, alto, color, precio_fob, sku, notas) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [nombre, largo, ancho, alto, color, precio_fob, sku, notas])
+        "INSERT INTO productos (nombre, largo, ancho, alto, color, precio_fob, sku, notas, etiquetas) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [nombre, largo, ancho, alto, color, precio_fob, sku, notas, etiquetas])
     new_id = resp.get("last_insert_rowid", 0)
     # Actualizar cache
     _cache.insert(0, _cast_producto({
         "id": new_id, "nombre": nombre, "largo": largo, "ancho": ancho,
         "alto": alto, "color": color, "precio_fob": precio_fob,
-        "sku": sku, "notas": notas,
+        "sku": sku, "notas": notas, "etiquetas": etiquetas,
     }))
     return new_id
 
 
 def actualizar(id_: int, nombre: str, largo: float, ancho: float, alto: float,
-               color: str, precio_fob: float, notas: str = "") -> None:
+               color: str, precio_fob: float, notas: str = "",
+               etiquetas: str = "") -> None:
     # Write-through: Turso primero
     _execute(
-        "UPDATE productos SET nombre=?, largo=?, ancho=?, alto=?, color=?, precio_fob=?, notas=? "
+        "UPDATE productos SET nombre=?, largo=?, ancho=?, alto=?, color=?, precio_fob=?, notas=?, etiquetas=? "
         "WHERE id=?",
-        [nombre, largo, ancho, alto, color, precio_fob, notas, id_])
+        [nombre, largo, ancho, alto, color, precio_fob, notas, etiquetas, id_])
     # Actualizar cache
     for p in _cache:
         if p["id"] == id_:
             p.update(nombre=nombre, largo=largo, ancho=ancho, alto=alto,
-                     color=color, precio_fob=precio_fob, notas=notas)
+                     color=color, precio_fob=precio_fob, notas=notas,
+                     etiquetas=etiquetas)
             break
 
 
