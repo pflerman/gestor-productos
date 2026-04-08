@@ -18,7 +18,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 TURSO_URL = os.getenv("TURSO_DB_URL", "")
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "")
 
-COLORES_VALIDOS = ("Blanco", "Negro", "Blanco negro", "Rosa", "Verde", "Violeta", "Transparente", "Rojo", "Azul")
+COLORES_VALIDOS = ("Blanco", "Negro", "Blanco negro", "Gris", "Rosa", "Verde", "Violeta", "Transparente", "Rojo", "Azul")
 
 _SKU_CHARS = string.ascii_uppercase + string.digits
 _SKU_LEN = 8
