@@ -500,6 +500,7 @@ class MainView(tk.Frame):
         largo = values[4]
         ancho = values[5]
         alto = values[6]
+        precio_fob = values[8] if len(values) > 8 else ""
         notas = values[9] if len(values) > 9 else ""
         etiquetas = values[10] if len(values) > 10 else ""
 
@@ -523,6 +524,9 @@ class MainView(tk.Frame):
             command=lambda: self._copiar(
                 f"Las medidas de {nombre} son: {largo} cm de largo, "
                 f"{ancho} cm de ancho y {alto} cm de alto"))
+        menu.add_command(
+            label=f"📋 Copiar FOB amigo: {precio_fob}",
+            command=lambda: self._copiar(precio_fob))
         menu.add_separator()
         if etiquetas:
             etiq_preview = etiquetas if len(etiquetas) <= 40 else etiquetas[:40] + "..."
