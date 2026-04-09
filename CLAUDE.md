@@ -36,9 +36,6 @@ El orden es exactamente:
 ```
 El menú contextual (`_on_right_click` en `main_view.py`) y otros lugares indexan por posición (`values[2]`, `values[8]`, etc.). Si agregás/reordenás columnas, hay que actualizar TODOS los índices a mano. No hay protección.
 
-### `productos.db` en el repo está obsoleto
-El archivo `productos.db` quedó versionado como legado de cuando la app era SQLite local. **La base real es Turso**, ese archivo no se lee ni se escribe en runtime. No lo edites, no asumas que tiene datos vivos, y no te asustes si aparece "modified" en `git status` — es ruido.
-
 ### Íconos con PIL/ImageDraw, NO emoji Unicode
 En Tkinter sobre Linux, los emoji Unicode renderizan inconsistente (a veces como cuadraditos, a veces sin color). La regla del proyecto: **dibujar íconos con `PIL.ImageDraw`** y cargarlos como `PhotoImage`. Si ves un helper que dibuja un círculo o una lupa con PIL para un botón, no lo "simplifiques" a un emoji.
 
