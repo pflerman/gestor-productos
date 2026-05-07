@@ -2,6 +2,8 @@
 
 import io
 import logging
+import shutil
+import subprocess
 import tempfile
 import unicodedata
 import tkinter as tk
@@ -553,6 +555,11 @@ class MainView(tk.Frame):
         self.clipboard_clear()
         self.clipboard_append(texto)
         self.update()
+        if shutil.which("xclip"):
+            subprocess.run(
+                ["xclip", "-selection", "clipboard"],
+                input=texto.encode(), check=False, timeout=2,
+            )
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHECKBOX / SELECCIÓN
