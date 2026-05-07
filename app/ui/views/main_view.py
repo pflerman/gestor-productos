@@ -2,6 +2,7 @@
 
 import io
 import logging
+import subprocess
 import tempfile
 import unicodedata
 import tkinter as tk
@@ -553,6 +554,13 @@ class MainView(tk.Frame):
         self.clipboard_clear()
         self.clipboard_append(texto)
         self.update()
+        try:
+            subprocess.run(
+                ["clip.exe"], input=texto.encode("utf-16-le"),
+                check=False, timeout=2,
+            )
+        except FileNotFoundError:
+            pass
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHECKBOX / SELECCIÓN
