@@ -551,16 +551,21 @@ class MainView(tk.Frame):
 
     def _copiar(self, texto: str) -> None:
         """Copia texto al portapapeles."""
+        log = logging.getLogger(__name__)
+        log.info("_copiar llamado con: %r", texto)
         self.clipboard_clear()
         self.clipboard_append(texto)
         self.update()
         try:
-            subprocess.run(
+            result = subprocess.run(
                 ["clip.exe"], input=texto.encode("utf-16-le"),
-                check=False, timeout=2,
+                check=False, timeout=2, capture_output=True,
             )
+            log.info("clip.exe retornó rc=%d stderr=%r", result.returncode, result.stderr)
         except FileNotFoundError:
-            pass
+            log.info("clip.exe no encontrado (no estamos en WSL)")
+        except Exception as e:
+            log.warning("clip.exe falló: %s", e)
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHECKBOX / SELECCIÓN
@@ -819,6 +824,8 @@ class MainView(tk.Frame):
         self._btn_save.configure(text="Agregar", bg=theme.BTN_SUCCESS)
 
     def _refresh_tree(self) -> None:
+        if not hasattr(self, "_tree"):
+            return
         for item in self._tree.get_children():
             self._tree.delete(item)
 
