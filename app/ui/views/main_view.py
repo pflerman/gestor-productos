@@ -504,7 +504,10 @@ class MainView(tk.Frame):
         notas = values[9] if len(values) > 9 else ""
         etiquetas = values[10] if len(values) > 10 else ""
 
+        if hasattr(self, "_ctx_menu"):
+            self._ctx_menu.destroy()
         menu = tk.Menu(self, tearoff=0)
+        self._ctx_menu = menu
         menu.add_command(label=f"📋 Copiar SKU: {sku}",
                          command=lambda: self._copiar(sku))
         menu.add_command(label=f"📋 Copiar Título: {nombre}",
