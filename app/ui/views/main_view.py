@@ -2,7 +2,6 @@
 
 import io
 import logging
-import subprocess
 import tempfile
 import unicodedata
 import tkinter as tk
@@ -551,21 +550,9 @@ class MainView(tk.Frame):
 
     def _copiar(self, texto: str) -> None:
         """Copia texto al portapapeles."""
-        log = logging.getLogger(__name__)
-        log.info("_copiar llamado con: %r", texto)
         self.clipboard_clear()
         self.clipboard_append(texto)
         self.update()
-        try:
-            result = subprocess.run(
-                ["clip.exe"], input=texto.encode("utf-16-le"),
-                check=False, timeout=2, capture_output=True,
-            )
-            log.info("clip.exe retornó rc=%d stderr=%r", result.returncode, result.stderr)
-        except FileNotFoundError:
-            log.info("clip.exe no encontrado (no estamos en WSL)")
-        except Exception as e:
-            log.warning("clip.exe falló: %s", e)
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHECKBOX / SELECCIÓN
