@@ -552,6 +552,7 @@ class MainView(tk.Frame):
         """Copia texto al portapapeles."""
         self.clipboard_clear()
         self.clipboard_append(texto)
+        self.update()
 
     # ══════════════════════════════════════════════════════════════════════════
     # CHECKBOX / SELECCIÓN
